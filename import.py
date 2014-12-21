@@ -6,7 +6,7 @@ from influxdb import InfluxDBClient
 from pprint import pprint
 from collections import defaultdict
 from muninwww import discover_from_www, MUNIN_WWW_FOLDER
-from rrdreader import discover_from_rrd, MUNIN_RRD_FOLDER
+from rrdreader import discover_from_rrd, export_xml_files, MUNIN_RRD_FOLDER
 
 PLUGIN_DIR = "/etc/munin/plugins"
 MUNIN_FOLDER = "data/acadis.org"
@@ -33,11 +33,16 @@ def retrieve_munin_configuration():
 
     for host, value in config.items():
         print "---", host, "---"
-        pprint(dict(value))
+        # pprint(dict(value))
+
+    export_xml_files(MUNIN_RRD_FOLDER, config=config)
+
 
 def main():
     c = raw_input("Continue?")
     retrieve_munin_configuration()
+
+    # g = raw_input("Group fields in the same InfluxDB serie? [y]/n")
 
 
 if __name__ == "__main__":

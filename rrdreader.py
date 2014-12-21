@@ -1,7 +1,8 @@
-import os
+import os, sys
 from datetime import datetime
 from collections import defaultdict
 from pprint import pprint
+import subprocess
 
 import xml.etree.ElementTree as ET
 
@@ -15,6 +16,14 @@ DATA_TYPES = {
     'd': 'derive',
     'g': 'gauge',
 }
+
+def progress_bar(current, max):
+    bar_len = 50
+    percent = float(current) / max
+    hashes = '#' * int(round(percent * bar_len))
+    spaces = ' ' * (bar_len - len(hashes))
+    sys.stdout.write("\rProgress: [{0}] {1}%".format(hashes + spaces, int(round(percent * 100))))
+    sys.stdout.flush()
 
 def read_rrd_file(filename):
     import rrdtool
@@ -113,6 +122,40 @@ def read_xml_file(filename):
 
     return values
 
+def export_xml_files(source, destination="/tmp/xml", config=None):
+    assert os.path.exists(source)
+    try:
+        os.makedirs(destination)
+    except:
+        pass
+
+    if config is None:
+        filelist = [os.path.join(source, file) for file in os.listdir(source) if file.endswith(".rrd")]
+    else:
+
+        filelist = [(domain, attributes['filename'])
+                    for domain, hosts in config.items()
+                        for host, plugins in hosts.items()
+                            for plugin, fields in plugins.items()
+                                for field, attributes in fields['fields'].items()
+                                    if fields['rrd_found']
+        ]
+
+    nb_files = len(filelist)
+    print "Exporting {0} RRD databases:".format(nb_files)
+
+    i = 0
+    for domain, file in filelist:
+        i += 1
+        src = os.path.join(source, domain, file)
+        dst = os.path.join(destination, "{0}-{1}".format(domain, file).replace(".rrd", ".xml"))
+        progress_bar(i, nb_files)
+
+        out = subprocess.check_output(['rrdtool', 'dump', src, dst])
+        if out:
+            print out
+    print ""
+
 
 def discover_from_rrd(folder, structure=None, insert_missing=True):
     """
@@ -155,7 +198,8 @@ def discover_from_rrd(folder, structure=None, insert_missing=True):
 
             if length == 4:
                 host, plugin, field, datatype = parts
-                # pprint({'node': node, 'field': field, 'type': DATA_TYPES[datatype], 'filename': filename})
+            elif length == 5:
+                host, plugin, field, datatype = parts[0], "-".join(parts[1:-2]), parts[-2], parts[-1]
             elif length > 5:
                 print "Invalid:", parts
                 continue
@@ -168,14 +212,19 @@ def discover_from_rrd(folder, structure=None, insert_missing=True):
                 continue
 
             plugin_data = structure[domain][host][plugin]
-            plugin_data["rrd_found"] = True
-            plugin_data["fields"][field] = {'type': DATA_TYPES[datatype], 'filename': filename}
+            try:
+                assert os.path.exists(os.path.join(folder, domain, "{0}-{1}-{2}-{3}.rrd".format(host, plugin, field, datatype[0])))
+            except AssertionError:
+                print filename, "!=", "{0}-{1}-{2}-{3}.rrd".format(host, plugin, field, datatype[0])
+            else:
+                plugin_data["rrd_found"] = True
+                plugin_data["fields"][field] = {'type': DATA_TYPES[datatype], 'filename': filename}
 
     if not insert_missing and len(not_inserted):
-        print "- The following plugins were found but not inserted:"
+        print "The following plugin databases were ignored"
         for domain, hosts in not_inserted.items():
-            print "  Domain {0}:".format(domain)
+            print "  - Domain {0}:".format(domain)
             for host, plugins in hosts.items():
-                print "    Host {0}: {1}".format(host, ", ".join(plugins))
+                print "    - Host {0}: {1}".format(host, ", ".join(plugins))
 
     return structure
