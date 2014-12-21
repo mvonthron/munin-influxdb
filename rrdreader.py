@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 MUNIN_RRD_FOLDER = "/var/lib/munin/"
 
 
-# Munin types
+# RRD types
 DATA_TYPES = {
     'a': 'absolute',
     'c': 'counter',
@@ -129,6 +129,7 @@ def discover_from_rrd(folder, structure=None, insert_missing=True):
     """
     if structure is None:
         structure = defaultdict(dict)
+    not_inserted = defaultdict(dict)
 
     for domain in os.listdir(folder):
         if not os.path.isdir(os.path.join(folder, domain)):
@@ -161,9 +162,20 @@ def discover_from_rrd(folder, structure=None, insert_missing=True):
                 # host, plugin, field, datatype = parts[0], parts[1], "_".join(parts[2:-1]), parts[-1]
 
             if not insert_missing and (not host in structure[domain] or not plugin in structure[domain][host]):
-                print "Not inserting {0}->{1}->{2}".format(domain, host, plugin)
+                if not host in not_inserted[domain]:
+                    not_inserted[domain][host] = set()
+                not_inserted[domain][host].add(plugin)
                 continue
 
             plugin_data = structure[domain][host][plugin]
             plugin_data["rrd_found"] = True
             plugin_data["fields"][field] = {'type': DATA_TYPES[datatype], 'filename': filename}
+
+    if not insert_missing and len(not_inserted):
+        print "- The following plugins were found but not inserted:"
+        for domain, hosts in not_inserted.items():
+            print "  Domain {0}:".format(domain)
+            for host, plugins in hosts.items():
+                print "    Host {0}: {1}".format(host, ", ".join(plugins))
+
+    return structure

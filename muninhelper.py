@@ -107,8 +107,6 @@ def retrieve_plugin_configs(folder):
     return configurations
 
 
-
-
 if __name__ == "__main__":
     with open("data/cpu.config") as f:
         parse_plugin_config('cpu', f.readlines())
