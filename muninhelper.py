@@ -1,15 +1,9 @@
 
 from collections import defaultdict
-from distutils.command.config import config
-from pprint import pprint
-
-# Munin types
-DATA_TYPES = {
-    'a': 'absolute',
-    'c': 'counter',
-    'd': 'derivative',
-    'g': 'absolute',
-}
+import os
+import stat
+import subprocess
+import xml.etree.ElementTree as ET
 
 
 CONFIG_KEYWORDS = [
@@ -36,6 +30,8 @@ def parse_plugin_config(name, text):
     config.fields = defaultdict(dict)
 
     for line in text:
+        if len(line) < 1:
+            continue
         # remove # for comments
         if line.find('#') >= 0:
             line = line[:line.find('#')]
@@ -52,24 +48,23 @@ def parse_plugin_config(name, text):
 
         elif key in CONFIG_KEYWORDS:
             if key == "multigraph":
-                print "Multigraph are not supported right now for automatic dashboard"
-                print "  but data will be imported and shown anyway"
-                return
+                raise Exception("Multigraph are not supported right now for automatic dashboard but data will be imported and shown anyway")
             elif key == "host_name":
                 config.hostname = " ".join(value)
 
 
         else:
             field = key.split(".")
-            config.fields[field[0]][field[1]] = " ".join(value)
+            config.fields[field[0]][field[1]] = " ".join(value).strip()
 
     #rework fields
     for field in config.fields:
         for attribute, value in config.fields[field].items():
+            #min:max values for warning/critical not yet supported
             if attribute == "warning":
-                config.fields[field][attribute] = float(value)
+                config.fields[field][attribute] = float(value.split(':')[0])
             if attribute == "critical":
-                config.fields[field][attribute] = float(value)
+                config.fields[field][attribute] = float(value.split(':')[0])
             if attribute == "min":
                 config.fields[field][attribute] = float(value)
             if attribute == "line":
@@ -88,6 +83,31 @@ def parse_plugin_config(name, text):
             config.fields[field]['type'] = 'gauge'
 
         config.expected_filename = "{0}-{1}-{2}.rrd".format(name, field, config.fields[field]['type'][0])
+        return config
+
+def retrieve_plugin_configs(folder):
+    """
+
+    """
+    is_executable = lambda p: os.stat(os.path.join(folder, p))[stat.ST_MODE] & stat.S_IXUSR
+    configurations = []
+    plugins = os.listdir(folder)
+    for plugin in plugins:
+        if is_executable(plugin):
+            try:
+                stdout = subprocess.check_output(['munin-run', plugin, 'config'])
+                c = parse_plugin_config(plugin, stdout.split('\n'))
+                configurations.append(c)
+            except Exception as e:
+                print "Error reading {0} configuration, skipping.\n  Message: {1}".format(plugin, e.message)
+
+        else:
+            print "Not executable:", plugin
+
+    return configurations
+
+
+
 
 if __name__ == "__main__":
     with open("data/cpu.config") as f:
