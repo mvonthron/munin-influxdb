@@ -1,13 +1,14 @@
-import os, sys
+import os
 from datetime import datetime
 from collections import defaultdict
-from pprint import pprint
 import subprocess
+import math
 
 import xml.etree.ElementTree as ET
+from utils import progress_bar
 
 MUNIN_RRD_FOLDER = "/var/lib/munin/"
-
+MUNIN_XML_FOLDER = "/tmp/xml"
 
 # RRD types
 DATA_TYPES = {
@@ -17,13 +18,6 @@ DATA_TYPES = {
     'g': 'gauge',
 }
 
-def progress_bar(current, max):
-    bar_len = 50
-    percent = float(current) / max
-    hashes = '#' * int(round(percent * bar_len))
-    spaces = ' ' * (bar_len - len(hashes))
-    sys.stdout.write("\rProgress: [{0}] {1}%".format(hashes + spaces, int(round(percent * 100))))
-    sys.stdout.flush()
 
 def read_rrd_file(filename):
     import rrdtool
@@ -64,8 +58,8 @@ def read_rrd_file(filename):
     # for i in range(rra_index):
     #     rra = defaultdict(dict)
 
-def read_xml_file(filename):
-    print "Parsing XML file {0}".format(filename)
+def read_xml_file(filename, keep_average_only=True):
+    # print "Parsing XML file {0}".format(filename)
     values = defaultdict(dict)
 
     tree = ET.parse(filename)
@@ -76,14 +70,9 @@ def read_xml_file(filename):
 
     for ds in root.findall('ds'):
         pass
-        # print ds.find('name').text.strip()
-        # print ds.find('type').text.strip()
-        #
-        # print ds.find('minimal_heartbeat').text.strip()
-        # print ds.find('last_ds').text.strip()
 
     for rra in root.findall('rra'):
-        if KEEP_AVERAGE_ONLY and rra.find('cf').text.strip() != "AVERAGE":
+        if keep_average_only and rra.find('cf').text.strip() != "AVERAGE":
             # @todo store max and min in the same record but different column
             continue
 
@@ -93,10 +82,10 @@ def read_xml_file(filename):
         nb_entries = len(rra.find("database"))
         entry_date = first_entry = last_entry - (nb_entries-1)*entry_delta
 
-        print "  + New segment from {0} to {1}. Nb entries: {2}. Granularity: {3} sec.".format(datetime.fromtimestamp(first_entry),
-                                                                                               datetime.fromtimestamp(last_entry),
-                                                                                               nb_entries,
-                                                                                               entry_delta)
+        # print "  + New segment from {0} to {1}. Nb entries: {2}. Granularity: {3} sec.".format(datetime.fromtimestamp(first_entry),
+        #                                                                                        datetime.fromtimestamp(last_entry),
+        #                                                                                        nb_entries,
+        #                                                                                        entry_delta)
 
         # there should be only onv <v> entry per row, at least didn't see other cases with Munin
         for v in rra.findall("./database/row/v"):
@@ -122,7 +111,10 @@ def read_xml_file(filename):
 
     return values
 
-def export_xml_files(source, destination="/tmp/xml", config=None):
+def export_xml_files(source, destination=MUNIN_XML_FOLDER, config=None):
+    """
+
+    """
     assert os.path.exists(source)
     try:
         os.makedirs(destination)
@@ -130,7 +122,7 @@ def export_xml_files(source, destination="/tmp/xml", config=None):
         pass
 
     if config is None:
-        filelist = [os.path.join(source, file) for file in os.listdir(source) if file.endswith(".rrd")]
+        filelist = [("", os.path.join(source, file)) for file in os.listdir(source) if file.endswith(".rrd")]
     else:
 
         filelist = [(domain, attributes['filename'])
@@ -151,13 +143,12 @@ def export_xml_files(source, destination="/tmp/xml", config=None):
         dst = os.path.join(destination, "{0}-{1}".format(domain, file).replace(".rrd", ".xml"))
         progress_bar(i, nb_files)
 
-        out = subprocess.check_output(['rrdtool', 'dump', src, dst])
-        if out:
-            print out
-    print ""
+        code = subprocess.check_call(['rrdtool', 'dump', src, dst])
+
+    return nb_files
 
 
-def discover_from_rrd(folder, structure=None, insert_missing=True):
+def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing=False):
     """
     Builds a Munin dashboard structure (domain/host/plugins) by listing the files in the RRD folder
 
@@ -170,6 +161,9 @@ def discover_from_rrd(folder, structure=None, insert_missing=True):
                    |            `------------------- Node name: 'foo.example.com'
                    `-------------------------------- Group name: 'SomeGroup'
     """
+
+    print "Reading Munin RRD cache"
+
     if structure is None:
         structure = defaultdict(dict)
     not_inserted = defaultdict(dict)
@@ -183,7 +177,12 @@ def discover_from_rrd(folder, structure=None, insert_missing=True):
             #skip unknown domains (probably no longer wanted)
             continue
 
-        for filename in os.listdir(os.path.join(folder, domain)):
+        i = 0
+        files = os.listdir(os.path.join(folder, domain))
+        for filename in files:
+            i += 1
+            progress_bar(i, len(files), title=domain)
+
             path = os.path.join(folder, domain, filename)
             if os.path.isdir(path) or not path.endswith(".rrd"):
                 # not a RRD database
@@ -220,7 +219,7 @@ def discover_from_rrd(folder, structure=None, insert_missing=True):
                 plugin_data["rrd_found"] = True
                 plugin_data["fields"][field] = {'type': DATA_TYPES[datatype], 'filename': filename}
 
-    if not insert_missing and len(not_inserted):
+    if print_missing and len(not_inserted):
         print "The following plugin databases were ignored"
         for domain, hosts in not_inserted.items():
             print "  - Domain {0}:".format(domain)

@@ -1,6 +1,7 @@
 import os, sys
 from collections import defaultdict
 from pprint import pprint
+from utils import progress_bar
 
 try:
     from bs4 import BeautifulSoup
@@ -21,6 +22,8 @@ def discover_from_www(folder, structure=None):
     Builds a Munin dashboard structure (domain/host/plugins) by reading the HTML files
     rather than listing the cache folder because the later is likely to contain old data
     """
+
+    print "Reading Munin www cache:"
     if structure is None:
         structure = defaultdict(dict)
 
@@ -37,7 +40,11 @@ def discover_from_www(folder, structure=None):
             domain_root = BeautifulSoup(f.read())
 
         links = domain_root.find(id="content").findAll("a")
+        i=0
         for link in links:
+            i += 1
+            progress_bar(i, len(links), title=domain.text)
+
             elements = link.get("href").split("/")
             if len(elements) < 2 \
                 or elements[0].startswith("..") \
