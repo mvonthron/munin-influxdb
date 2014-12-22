@@ -30,24 +30,25 @@ def retrieve_munin_configuration():
     #multigraphs? (diskstats)
     discover_from_rrd(MUNIN_RRD_FOLDER, structure=config, insert_missing=False)
 
+    for host, value in config.items():
+        print "---", host, "---"
+        # pprint(dict(value))
+
+    return config
+
+def main():
+    c = raw_input("Continue?")
+    config = retrieve_munin_configuration()
+
     #export RRD files as XML for (much) easier parsing
     #(but takes much more time)
     # export_xml_files(MUNIN_RRD_FOLDER, config=config)
 
     #reads every XML file and export as in the InfluxDB database
-    exporter = Exporter("", "", "", "")
+    exporter = Exporter()
+    exporter.prompt_setup()
+
     exporter.export_xml_from(MUNIN_XML_FOLDER)
-
-
-    for host, value in config.items():
-        print "---", host, "---"
-        # pprint(dict(value))
-
-def main():
-    c = raw_input("Continue?")
-    retrieve_munin_configuration()
-
-    # g = raw_input("Group fields in the same InfluxDB serie? [y]/n")
 
 
 if __name__ == "__main__":
