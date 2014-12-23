@@ -6,7 +6,7 @@ from rrdreader import read_xml_file
 from collections import defaultdict
 
 class InfluxdbClient:
-    def __init__(self, hostname="root:root@localhost:8086"):
+    def __init__(self, hostname="root@localhost:8086"):
         self.user, self.passwd, self.host, self.port, self.db_name = parse_handle(hostname)
         self.group_fields = True
         self.client = None
@@ -113,13 +113,9 @@ class InfluxdbClient:
         grouped_files = defaultdict(list)
         for file in file_list:
             parts = file.replace(".xml", "").split("-")
-            if len(parts) > 5:
-                # multigraph: later
-                continue
-
-            series_name = ".".join(parts[0:3])
+            series_name = ".".join(parts[0:-2])
             if self.group_fields:
-                grouped_files[series_name].append((parts[3], file))
+                grouped_files[series_name].append((parts[-2], file))
 
         show = raw_input("Would you like to see the prospective series and columns? y/[n]: ") or "n"
         if show in ("y", "Y"):
