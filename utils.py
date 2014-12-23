@@ -1,4 +1,19 @@
+# -*- coding: utf-8 -*-
+
 import sys
+
+
+class Color:
+    GREEN   = "\033[92m"
+    RED     = "\033[91m"
+    BLUE    = "\033[94m"
+    YELLOW  = "\033[93m"
+    BOLD    = "\033[1m"
+    CLEAR   = "\033[0m"
+
+class Symbol:
+    OK = "✓"
+    NOK = "✗"
 
 def progress_bar(current, max, title="Progress", length=50):
     """
@@ -7,7 +22,7 @@ def progress_bar(current, max, title="Progress", length=50):
     percent = float(current) / max
     hashes = '#' * int(round(percent * length))
     spaces = ' ' * (length - len(hashes))
-    sys.stdout.write("\r{0}: [{1}] {2}%".format(title, hashes + spaces, int(round(percent * 100))))
+    sys.stdout.write("\r{0}: [{3}{1}{4}] {2}%".format(title, hashes + spaces, int(round(percent * 100)), Color.GREEN, Color.CLEAR))
     sys.stdout.flush()
     if percent >= 1:
         print ""

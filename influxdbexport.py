@@ -1,14 +1,14 @@
+from pprint import pprint
 import os
 import influxdb
-from utils import progress_bar, parse_handle
+from utils import progress_bar, parse_handle, Color, Symbol
 from rrdreader import read_xml_file
+from collections import defaultdict
 
-class Exporter:
+class InfluxdbClient:
     def __init__(self, hostname="root:root@localhost:8086"):
         self.user, self.passwd, self.host, self.port, self.db_name = parse_handle(hostname)
-
         self.group_fields = True
-
         self.client = None
         self.valid = False
 
@@ -48,13 +48,21 @@ class Exporter:
             print "Error: could not select database: ", e.message
             return False
 
+        # dummy query to test db
+        try:
+            res = self.client.query('select * from /.*/ limit 1;')
+        except influxdb.client.InfluxDBClientError as e:
+            print "Error: could not query database: ", e.message
+            return False
+
         return True
 
     def list_db(self):
         assert self.client
-        l = self.client.get_database_list()
-
-        print "List of existing databases:", l
+        db_list = self.client.get_database_list()
+        print "List of existing databases:"
+        for db in db_list:
+            print "  - {0}".format(db['name'])
 
     def prompt_setup(self):
         while not self.client:
@@ -63,7 +71,7 @@ class Exporter:
             if self.port is None:
                 self.port = 8086
 
-            # shortcut if everything in the handle
+            # shortcut if everything is in the handle
             if self.connect():
                 break
 
@@ -85,20 +93,59 @@ class Exporter:
         self.group_fields = group in ("n", "N")
 
 
-    def upload_values(self, name, values):
-        pass
+    def upload_values(self, name, columns, points):
+        body = [{
+            "name": name,
+            "columns": columns,
+            "points": points,
+        }]
+        try:
+            self.client.write_points(body)
+        except Exception as e:
+            print "Error writing to database: ", e.message
+            return False
+        else:
+            return True
 
-    def export_xml_from(self, folder):
-        files = os.listdir(folder)
+    def import_from_xml_folder(self, folder):
+        # build file list and grouping if necessary
+        file_list = os.listdir(folder)
+        grouped_files = defaultdict(list)
+        for file in file_list:
+            parts = file.replace(".xml", "").split("-")
+            if len(parts) > 5:
+                # multigraph: later
+                continue
 
-        print "Importing {0} XML files".format(len(files))
+            series_name = ".".join(parts[0:3])
+            if self.group_fields:
+                grouped_files[series_name].append((parts[3], file))
+
+        show = raw_input("Would you like to see the prospective series and columns? y/[n]: ") or "n"
+        if show in ("y", "Y"):
+            for group in sorted(grouped_files):
+                print "  - {2}{0}{3}: {1}".format(group, [name for name, _ in grouped_files[group]], Color.GREEN, Color.CLEAR)
+
+        print "Importing {0} XML files".format(len(file_list))
         i = 0
-        for file in files:
-            i += 1
-            progress_bar(i, len(files))
-            read_xml_file(os.path.join(folder, file))
+        for group in grouped_files:
+            data = []
+            keys_name = ['time']
+            values = defaultdict(list)
+            for field, file in grouped_files[group]:
+                i += 1
+                progress_bar(i, len(file_list))
 
+                keys_name.append(field)
+                #@todo make read_xml_file yieldable
+                content = read_xml_file(os.path.join(folder, file))
+                [values[key].append(value) for key, value in content.items()]
+
+            data.extend([[k]+v for k, v in values.items()])
+            self.upload_values(group, keys_name, data)
 
 if __name__ == "__main__":
-    e = Exporter()
-    e.prompt_setup()
+    e = InfluxdbClient()
+    e.group_fields = True
+    # e.prompt_setup()
+    e.import_from_xml_folder("/tmp/xml")

@@ -3,6 +3,7 @@ from datetime import datetime
 from collections import defaultdict
 import subprocess
 import math
+import logging
 
 import xml.etree.ElementTree as ET
 from utils import progress_bar

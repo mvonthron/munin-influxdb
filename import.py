@@ -5,7 +5,7 @@ from collections import defaultdict
 
 from muninwww import discover_from_www, MUNIN_WWW_FOLDER
 from rrdreader import discover_from_rrd, export_xml_files, MUNIN_RRD_FOLDER, MUNIN_XML_FOLDER
-from influxdbexport import Exporter
+from influxdbexport import InfluxdbClient
 
 PLUGIN_DIR = "/etc/munin/plugins"
 MUNIN_FOLDER = "data/acadis.org"
@@ -45,10 +45,10 @@ def main():
     # export_xml_files(MUNIN_RRD_FOLDER, config=config)
 
     #reads every XML file and export as in the InfluxDB database
-    exporter = Exporter()
+    exporter = InfluxdbClient()
     exporter.prompt_setup()
 
-    exporter.export_xml_from(MUNIN_XML_FOLDER)
+    exporter.import_from_xml_folder(MUNIN_XML_FOLDER)
 
 
 if __name__ == "__main__":
