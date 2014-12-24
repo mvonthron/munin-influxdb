@@ -1,5 +1,7 @@
 from pprint import pprint
 import os
+import getpass
+import json
 import influxdb
 from utils import progress_bar, parse_handle, Color, Symbol
 from rrdreader import read_xml_file
@@ -12,13 +14,15 @@ class InfluxdbClient:
         self.client = None
         self.valid = False
 
-    def connect(self):
+    def connect(self, silent=False):
         try:
             client = influxdb.InfluxDBClient(self.host, self.port, self.user, self.passwd)
             # dummy request to test connection
             client.get_database_list()
         except influxdb.client.InfluxDBClientError as e:
             self.client, self.valid = None, False
+            if not silent:
+                print "Could not connect to database: ", e.message
         except Exception as e:
             print "Error: ", e.message
             self.client, self.valid = None, False
@@ -72,12 +76,12 @@ class InfluxdbClient:
                 self.port = 8086
 
             # shortcut if everything is in the handle
-            if self.connect():
+            if self.connect(silent=True):
                 break
 
             self.port = raw_input("Enter InfluxDB port? [{0}]: ".format(self.port)) or self.port
             self.user = raw_input("Enter InfluxDB user? [{0}]: ".format(self.user)) or self.user
-            self.passwd = raw_input("Enter InfluxDB password? [{0}]: ".format(self.passwd)) or self.passwd
+            self.passwd = getpass.getpass("Enter InfluxDB password: ")
 
             self.connect()
 
@@ -90,7 +94,7 @@ class InfluxdbClient:
             self.db_name = raw_input("Enter InfluxDB database name? [munin]: ") or "munin"
 
         group = raw_input("Group multiple fields of the same plugin in the same time series? [y]/n: ") or "y"
-        self.group_fields = group in ("n", "N")
+        self.group_fields = group in ("y", "Y")
 
 
     def upload_values(self, name, columns, points):
@@ -102,7 +106,10 @@ class InfluxdbClient:
         try:
             self.client.write_points(body)
         except Exception as e:
-            print "Error writing to database: ", e.message
+            print "Error writing to database:", e.message
+            print name, pprint(columns)
+            with open("/tmp/err-import-{0}.json".format(name), "w") as f:
+                json.dump(body, f)
             return False
         else:
             return True
@@ -116,6 +123,8 @@ class InfluxdbClient:
             series_name = ".".join(parts[0:-2])
             if self.group_fields:
                 grouped_files[series_name].append((parts[-2], file))
+            else:
+                grouped_files[".".join([series_name, parts[-2]])].append(('value', file))
 
         show = raw_input("Would you like to see the prospective series and columns? y/[n]: ") or "n"
         if show in ("y", "Y"):
@@ -142,6 +151,5 @@ class InfluxdbClient:
 
 if __name__ == "__main__":
     e = InfluxdbClient()
-    e.group_fields = True
-    # e.prompt_setup()
+    e.prompt_setup()
     e.import_from_xml_folder("/tmp/xml")

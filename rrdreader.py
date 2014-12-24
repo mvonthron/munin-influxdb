@@ -94,9 +94,9 @@ def read_xml_file(filename, keep_average_only=True):
                 value = float(v.text)
                 # we don't want to override existing values as they are 'fresher' and less likely to be averaged (CF'd)
                 if math.isnan(value):
-                    pass
+                    value = None
                     #print entry_date, value
-                elif not entry_date in values:
+                if not entry_date in values:
                     values[entry_date] = value
 
             except:
