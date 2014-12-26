@@ -81,7 +81,7 @@ class Dashboard:
         self.tags = []
         self.datasource = None
 
-    def add_row(self, title):
+    def add_row(self, title=""):
         row = Row(title)
         self.rows.append(row)
         return row
@@ -95,16 +95,26 @@ class Dashboard:
             "time": {"from": "now-5d", "to": "now"},
         }
 
+    @staticmethod
+    def generate_simple(title, structure):
+        """
+        Generates a simple dashboard based on the
+        @return:
+        """
+        dashboard = Dashboard(title)
 
-def generate_simple_dashboard():
-    """
-    Generates a simple dashboard based on the
-    @return:
-    """
-    pass
+        for series in structure:
+            row = dashboard.add_row()
+            panel = row.add_panel(series['name'].split(".")[-1], series['name'])
+
+            for col in series['columns']:
+                panel.add_query(col)
+
+        return dashboard.to_json()
 
 if __name__ == "__main__":
     # main for dev/debug purpose only
+    """
     dashboard = Dashboard("Munin")
     dashboard.tags.append("munin")
     dashboard.datasource = "munin"
@@ -119,3 +129,14 @@ if __name__ == "__main__":
     # pprint(dashboard.to_json())
 
     print json.dumps(dashboard.to_json(),indent=2, separators=(',', ': '))
+    """
+
+    import influxdbclient
+    client = influxdbclient.InfluxdbClient("...")
+    client.connect()
+
+    dashboard = Dashboard.generate_simple("Munin", client.list_columns())
+    with open("/tmp/munin-grafana.json", "w") as f:
+        json.dump(dashboard, f, indent=2, separators=(',', ': '))
+
+    

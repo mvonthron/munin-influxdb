@@ -30,6 +30,9 @@ class InfluxdbClient:
         else:
             self.client, self.valid = client, True
 
+        if self.db_name:
+            self.client.switch_db(self.db_name)
+
     def test_db(self, name):
         assert self.client
         if not name:
@@ -68,6 +71,24 @@ class InfluxdbClient:
         print "List of existing databases:"
         for db in db_list:
             print "  - {0}".format(db['name'])
+
+    def list_series(self):
+        return self.client.get_list_series()
+
+    def list_columns(self, series="/.*/"):
+        """
+        Return a list of existing series and columns in the database
+
+        @param series: specific series or all by default
+        @return: dict of series/columns: [{'name': 'series_name', 'columns': ['colA', 'colB']}]
+        """
+        res = self.client.query("select * from {0} limit 1".format(series))
+        for series in res:
+            del series['points']
+            series['columns'].remove('time')
+            series['columns'].remove('sequence_number')
+
+        return res
 
     def prompt_setup(self):
         print "{0}Please enter InfluxDB connection information{1}".format(Color.BOLD, Color.CLEAR)
