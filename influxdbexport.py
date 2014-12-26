@@ -36,7 +36,7 @@ class InfluxdbClient:
 
         db_list = self.client.get_database_list()
         if not {'name': name} in db_list:
-            create = raw_input("{0} database doesn't exists. Would you want to create it? [y]/n: ".format(name)) or "y"
+            create = raw_input("{0} database doesn't exist. Would you want to create it? [y]/n: ".format(name)) or "y"
             if not create in ("y", "Y"):
                 return False
 
@@ -69,8 +69,10 @@ class InfluxdbClient:
             print "  - {0}".format(db['name'])
 
     def prompt_setup(self):
+        print "{0}Please enter InfluxDB connection information{1}".format(Color.BOLD, Color.CLEAR)
         while not self.client:
-            hostname = raw_input("Enter InfluxDB hostname? [{0}]: ".format(self.host)) or self.host
+            hostname = raw_input("  - host/handle [{0}]: ".format(self.host)) or self.host
+
             self.user, self.passwd, self.host, self.port, self.db_name = parse_handle(hostname)
             if self.port is None:
                 self.port = 8086
@@ -79,9 +81,9 @@ class InfluxdbClient:
             if self.connect(silent=True):
                 break
 
-            self.port = raw_input("Enter InfluxDB port? [{0}]: ".format(self.port)) or self.port
-            self.user = raw_input("Enter InfluxDB user? [{0}]: ".format(self.user)) or self.user
-            self.passwd = getpass.getpass("Enter InfluxDB password: ")
+            self.port = raw_input("  - port [{0}]: ".format(self.port)) or self.port
+            self.user = raw_input("  - user [{0}]: ".format(self.user)) or self.user
+            self.passwd = getpass.getpass("  - password: ")
 
             self.connect()
 
@@ -91,7 +93,7 @@ class InfluxdbClient:
             else:
                 if self.test_db(self.db_name):
                     break
-            self.db_name = raw_input("Enter InfluxDB database name? [munin]: ") or "munin"
+            self.db_name = raw_input("  - database [munin]: ") or "munin"
 
         group = raw_input("Group multiple fields of the same plugin in the same time series? [y]/n: ") or "y"
         self.group_fields = group in ("y", "Y")
@@ -115,12 +117,12 @@ class InfluxdbClient:
             raise Exception("Cannot insert in {0} series: {1}".format(name, e.message))
 
 
-    def validate_record(self, name, columns, length):
+    def validate_record(self, name, columns):
         """
-        Performs brief validation of the record made: checks that the named series
-        contains at least 'count' elements in the specified columns
-        @param name:
-        @return:
+        Performs brief validation of the record made: checks that the named series exists
+        contains the specified columns
+
+        As InfluxDB doesn't store null values we cannot compare length for now
         """
 
         if not name in self.client.get_list_series():
@@ -130,14 +132,13 @@ class InfluxdbClient:
             if column == "time":
                 pass
             else:
-                # count() ignores null values thus we won't compare length for now
                 try:
                     res = self.client.query("select count({0}) from {1}".format(column, name))
                     assert res[0]['points'][0][1] >= 0
                 except influxdb.client.InfluxDBClientError as e:
                     raise Exception(e.message)
                 except Exception as e:
-                    raise Exception("Column \"{0}\" doesn't exist".format(column))
+                    raise Exception("Column \"{0}\" doesn't exist. (May happen if original data contains only NaN entries)".format(column))
 
         return True
 
@@ -185,16 +186,17 @@ class InfluxdbClient:
                 continue
 
             try:
-                self.validate_record(series_name, keys_name, len(data))
+                self.validate_record(series_name, keys_name)
             except Exception as e:
                 errors.append("Validation error in {0}: {1}".format(series_name, e.message))
 
         if errors:
             print "The following errors were detected while importing:"
             for error in errors:
-                print "  {0}{1}{2} {3}".format(Color.RED, Symbol.NOK, Color.CLEAR, error)
+                print "  {0} {1}".format(Symbol.NOK_RED, error)
 
 if __name__ == "__main__":
+    # main used for dev/debug purpose only, use "import"
     e = InfluxdbClient()
     e.prompt_setup()
     e.import_from_xml_folder("/tmp/xml")

@@ -1,12 +1,13 @@
-import os
-from datetime import datetime
-from collections import defaultdict
+import os, errno
 import subprocess
 import math
 import logging
 
+from datetime import datetime
+from collections import defaultdict
+
 import xml.etree.ElementTree as ET
-from utils import progress_bar
+from utils import progress_bar, Color, Symbol
 
 MUNIN_RRD_FOLDER = "/var/lib/munin/"
 MUNIN_XML_FOLDER = "/tmp/xml"
@@ -59,7 +60,7 @@ def read_rrd_file(filename):
     # for i in range(rra_index):
     #     rra = defaultdict(dict)
 
-def read_xml_file(filename, keep_average_only=True):
+def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
     # print "Parsing XML file {0}".format(filename)
     values = defaultdict(dict)
 
@@ -69,8 +70,8 @@ def read_xml_file(filename, keep_average_only=True):
     last_update = int(root.find('lastupdate').text)
     step = int(root.find('step').text)
 
-    for ds in root.findall('ds'):
-        pass
+    if len(root.findall('ds')) > 1:
+        print "  {0} Found more than one datasource in {1} which is not expected. Please report problem.".format(Symbol.NOK_RED, filename)
 
     for rra in root.findall('rra'):
         if keep_average_only and rra.find('cf').text.strip() != "AVERAGE":
@@ -92,10 +93,9 @@ def read_xml_file(filename, keep_average_only=True):
         for v in rra.findall("./database/row/v"):
             try:
                 value = float(v.text)
-                # we don't want to override existing values as they are 'fresher' and less likely to be averaged (CF'd)
-                if math.isnan(value):
+                if math.isnan(value) and keep_null_values:
                     value = None
-                    #print entry_date, value
+                # we don't want to override existing values as they are 'fresher' and less likely to be averaged (CF'd)
                 if not entry_date in values:
                     values[entry_date] = value
 
@@ -119,8 +119,9 @@ def export_xml_files(source, destination=MUNIN_XML_FOLDER, config=None):
     assert os.path.exists(source)
     try:
         os.makedirs(destination)
-    except:
-        pass
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
 
     if config is None:
         filelist = [("", os.path.join(source, file)) for file in os.listdir(source) if file.endswith(".rrd")]
@@ -146,6 +147,7 @@ def export_xml_files(source, destination=MUNIN_XML_FOLDER, config=None):
 
         code = subprocess.check_call(['rrdtool', 'dump', src, dst])
 
+    print ""
     return nb_files
 
 
@@ -163,7 +165,7 @@ def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing
                    `-------------------------------- Group name: 'SomeGroup'
     """
 
-    print "Reading Munin RRD cache"
+    print "Reading Munin RRD cache: ({0})".format(folder)
 
     if structure is None:
         structure = defaultdict(dict)
@@ -196,14 +198,7 @@ def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing
                 print "Error:", filename, parts, length
                 continue
 
-            if length == 4:
-                host, plugin, field, datatype = parts
-            elif length == 5:
-                host, plugin, field, datatype = parts[0], "-".join(parts[1:-2]), parts[-2], parts[-1]
-            elif length > 5:
-                print "Invalid:", parts
-                continue
-                # host, plugin, field, datatype = parts[0], parts[1], "_".join(parts[2:-1]), parts[-1]
+            host, plugin, field, datatype = parts[0], "-".join(parts[1:-2]), parts[-2], parts[-1]
 
             if not insert_missing and (not host in structure[domain] or not plugin in structure[domain][host]):
                 if not host in not_inserted[domain]:
@@ -215,7 +210,7 @@ def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing
             try:
                 assert os.path.exists(os.path.join(folder, domain, "{0}-{1}-{2}-{3}.rrd".format(host, plugin, field, datatype[0])))
             except AssertionError:
-                print filename, "!=", "{0}-{1}-{2}-{3}.rrd".format(host, plugin, field, datatype[0])
+                print "{0} != {1}-{2}-{3}-{4}.rrd".format(filename, host, plugin, field, datatype[0])
             else:
                 plugin_data["rrd_found"] = True
                 plugin_data["fields"][field] = {'type': DATA_TYPES[datatype], 'filename': filename}
@@ -225,6 +220,6 @@ def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing
         for domain, hosts in not_inserted.items():
             print "  - Domain {0}:".format(domain)
             for host, plugins in hosts.items():
-                print "    - Host {0}: {1}".format(host, ", ".join(plugins))
+                print "    {0} Host {1}: {2}".format(Symbol.NOK_RED, host, ", ".join(plugins))
 
     return structure

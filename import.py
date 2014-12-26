@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 
-from datetime import datetime, timedelta
-from collections import defaultdict
-
 from muninwww import discover_from_www, MUNIN_WWW_FOLDER
 from rrdreader import discover_from_rrd, export_xml_files, MUNIN_RRD_FOLDER, MUNIN_XML_FOLDER
 from influxdbexport import InfluxdbClient
+from utils import Color, Symbol
 
 PLUGIN_DIR = "/etc/munin/plugins"
 MUNIN_FOLDER = "data/acadis.org"
@@ -15,7 +13,6 @@ KEEP_AVERAGE_ONLY = True
 def retrieve_munin_configuration():
     """
     """
-    config = defaultdict(dict)
 
     #run "munin-run * config" to get list of plugins and config
     #@todo takes too much time
@@ -24,25 +21,25 @@ def retrieve_munin_configuration():
     #read /var/cache/munin/www to check what's currently displayed
     #on the dashboard
     config = discover_from_www(MUNIN_WWW_FOLDER)
+    print ""
 
     #for each host, find the /var/lib/munin/<host> directory and check
     #if node name and plugin conf match RRD files
     #multigraphs? (diskstats)
     discover_from_rrd(MUNIN_RRD_FOLDER, structure=config, insert_missing=False)
-
-    for host, value in config.items():
-        print "---", host, "---"
-        # pprint(dict(value))
+    print ""
 
     return config
 
+
 def main():
-    c = raw_input("Continue?")
+    print "{0}Munin to InfluxDB migration tool{1}".format(Color.BOLD, Color.CLEAR)
+    print "-"*20
     config = retrieve_munin_configuration()
 
     #export RRD files as XML for (much) easier parsing
     #(but takes much more time)
-    # export_xml_files(MUNIN_RRD_FOLDER, config=config)
+    export_xml_files(MUNIN_RRD_FOLDER, config=config)
 
     #reads every XML file and export as in the InfluxDB database
     exporter = InfluxdbClient()
@@ -52,5 +49,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
-
+    try:
+        main()
+    except KeyboardInterrupt:
+        print "\n{0} Canceled.".format(Symbol.NOK_RED)
+    except Exception as e:
+        print "{0} Error: {1}".format(Symbol.NOK_RED, e.message)

@@ -23,7 +23,7 @@ def discover_from_www(folder, structure=None):
     rather than listing the cache folder because the later is likely to contain old data
     """
 
-    print "Reading Munin www cache:"
+    print "Reading Munin www cache: ({0})".format(folder)
     if structure is None:
         structure = defaultdict(dict)
 
