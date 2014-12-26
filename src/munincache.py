@@ -1,7 +1,10 @@
-import os, sys
+import os
+import sys
 from collections import defaultdict
 from pprint import pprint
+
 from utils import progress_bar
+
 
 try:
     from bs4 import BeautifulSoup

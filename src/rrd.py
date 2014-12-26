@@ -1,13 +1,13 @@
-import os, errno
+import os
+import errno
 import subprocess
 import math
-import logging
+from collections import defaultdict
+import xml.etree.ElementTree as ET
 
 from datetime import datetime
-from collections import defaultdict
+from utils import progress_bar, Symbol
 
-import xml.etree.ElementTree as ET
-from utils import progress_bar, Color, Symbol
 
 MUNIN_RRD_FOLDER = "/var/lib/munin/"
 MUNIN_XML_FOLDER = "/tmp/xml"
@@ -61,7 +61,6 @@ def read_rrd_file(filename):
     #     rra = defaultdict(dict)
 
 def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
-    # print "Parsing XML file {0}".format(filename)
     values = defaultdict(dict)
 
     tree = ET.parse(filename)
@@ -112,9 +111,14 @@ def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
 
     return values
 
-def export_xml_files(source, destination=MUNIN_XML_FOLDER, config=None):
+def export_to_xml(source, destination=MUNIN_XML_FOLDER, config=None):
     """
+    Calls "rrdtool dump" to convert RRD database files in "source" folder to XML representation
+    Converts all *.rrd files in source folder unless config is provided
 
+    @param source:
+    @param destination:
+    @param config:
     """
     assert os.path.exists(source)
     try:

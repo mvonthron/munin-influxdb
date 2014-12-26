@@ -15,6 +15,7 @@ class Symbol:
     OK = "✓"
     NOK = "✗"
     NOK_RED = "{0}{1}{2}".format(Color.RED, NOK, Color.CLEAR)
+    OK_GREEN = "{0}{1}{2}".format(Color.GREEN, OK, Color.CLEAR)
 
 def progress_bar(current, max, title="Progress", length=50):
     """

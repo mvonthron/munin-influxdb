@@ -1,11 +1,12 @@
-from pprint import pprint
 import os
 import getpass
 import json
+from collections import defaultdict
+
 import influxdb
 from utils import progress_bar, parse_handle, Color, Symbol
-from rrdreader import read_xml_file
-from collections import defaultdict
+from rrd import read_xml_file
+
 
 class InfluxdbClient:
     def __init__(self, hostname="root@localhost:8086"):
