@@ -1,4 +1,5 @@
 import json
+import uuid
 from pprint import pprint
 
 DASHBOARD_TEMPLATE = {
@@ -18,6 +19,7 @@ class Query:
         self.func = Query.DEFAULT_FUNC
         self.series = series
         self.column = column
+        self.alias = self.column
 
     def to_json(self):
         return {
@@ -28,7 +30,7 @@ class Query:
                                                                                                                 self.column,
                                                                                                                 self.series),
             "rawQuery": False,
-            "alias": self.column
+            "alias": self.alias
         }
 
 class Panel:
@@ -36,6 +38,7 @@ class Panel:
         self.title = title
         self.series = series
         self.queries = []
+        self.datasource = None
 
     def add_query(self, column):
         query = Query(self.series, column)
@@ -45,6 +48,9 @@ class Panel:
     def to_json(self):
         return {
             "title": self.title,
+            "datasource": self.datasource,
+            "type": "graph",
+            "span": 12,
             "targets": [query.to_json() for query in self.queries]
         }
 
@@ -62,14 +68,18 @@ class Row:
     def to_json(self):
         return {
             "title": self.title,
+            "height": "250px",
             "panels": [panel.to_json() for panel in self.panels],
             "showTitle": len(self.title) > 0
         }
 
+
 class Dashboard:
-    def __init__(self):
-        self.title = ""
+    def __init__(self, title):
+        self.title = title
         self.rows = []
+        self.tags = []
+        self.datasource = None
 
     def add_row(self, title):
         row = Row(title)
@@ -80,15 +90,32 @@ class Dashboard:
         return {
             "id": None,
             "title": self.title,
+            "tags": self.tags,
             "rows": [row.to_json() for row in self.rows],
+            "time": {"from": "now-5d", "to": "now"},
         }
 
 
+def generate_simple_dashboard():
+    """
+    Generates a simple dashboard based on the
+    @return:
+    """
+    pass
+
 if __name__ == "__main__":
     # main for dev/debug purpose only
-    d = Dashboard()
-    row = d.add_row("Tesla")
-    panel = row.add_panel("Memory", series="acadis.org.tesla.memory")
-    panel.add_query("buffers")
+    dashboard = Dashboard("Munin")
+    dashboard.tags.append("munin")
+    dashboard.datasource = "munin"
 
-    pprint(d.to_json())
+    row = dashboard.add_row("Tesla")
+    panel = row.add_panel("Memory", series="acadis.org.tesla.memory")
+    panel.datasource = dashboard.datasource
+
+    for field in ["apps", "free", "slab", "buffers"]:
+        panel.add_query(field)
+
+    # pprint(dashboard.to_json())
+
+    print json.dumps(dashboard.to_json(),indent=2, separators=(',', ': '))
