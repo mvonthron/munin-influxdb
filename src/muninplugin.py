@@ -10,6 +10,7 @@ CONFIG_KEYWORDS = [
     'multigraph',
 ]
 
+MUNIN_PLUGIN_FOLDER = "/etc/munin/plugins"
 
 class PluginConfig:
     graph = {

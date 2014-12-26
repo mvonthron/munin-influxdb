@@ -5,11 +5,6 @@ from rrd import discover_from_rrd, export_to_xml, MUNIN_RRD_FOLDER, MUNIN_XML_FO
 from influxdbclient import InfluxdbClient
 from utils import Color, Symbol
 
-PLUGIN_DIR = "/etc/munin/plugins"
-MUNIN_FOLDER = "data/acadis.org"
-KEEP_AVERAGE_ONLY = True
-
-
 def retrieve_munin_configuration():
     """
     """
