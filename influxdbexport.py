@@ -98,26 +98,55 @@ class InfluxdbClient:
 
 
     def upload_values(self, name, columns, points):
+        if len(columns) != len(points[0]):
+            raise Exception("Cannot insert in {0} series: expected {1} columns (contains {2})".format(name, len(columns), len(points)))
+
         body = [{
             "name": name,
             "columns": columns,
             "points": points,
         }]
+
         try:
             self.client.write_points(body)
-        except Exception as e:
-            print "Error writing to database:", e.message
-            print name, pprint(columns)
+        except influxdb.client.InfluxDBClientError as e:
             with open("/tmp/err-import-{0}.json".format(name), "w") as f:
                 json.dump(body, f)
-            return False
-        else:
-            return True
+            raise Exception("Cannot insert in {0} series: {1}".format(name, e.message))
+
+
+    def validate_record(self, name, columns, length):
+        """
+        Performs brief validation of the record made: checks that the named series
+        contains at least 'count' elements in the specified columns
+        @param name:
+        @return:
+        """
+
+        if not name in self.client.get_list_series():
+            raise Exception("Series {0} doesn't exists")
+
+        for column in columns:
+            if column == "time":
+                pass
+            else:
+                # count() ignores null values thus we won't compare length for now
+                try:
+                    res = self.client.query("select count({0}) from {1}".format(column, name))
+                    assert res[0]['points'][0][1] >= 0
+                except influxdb.client.InfluxDBClientError as e:
+                    raise Exception(e.message)
+                except Exception as e:
+                    raise Exception("Column {0} doesn't exists", name)
+
+        return True
 
     def import_from_xml_folder(self, folder):
         # build file list and grouping if necessary
         file_list = os.listdir(folder)
         grouped_files = defaultdict(list)
+        errors = []
+
         for file in file_list:
             parts = file.replace(".xml", "").split("-")
             series_name = ".".join(parts[0:-2])
@@ -128,16 +157,16 @@ class InfluxdbClient:
 
         show = raw_input("Would you like to see the prospective series and columns? y/[n]: ") or "n"
         if show in ("y", "Y"):
-            for group in sorted(grouped_files):
-                print "  - {2}{0}{3}: {1}".format(group, [name for name, _ in grouped_files[group]], Color.GREEN, Color.CLEAR)
+            for series_name in sorted(grouped_files):
+                print "  - {2}{0}{3}: {1}".format(series_name, [name for name, _ in grouped_files[series_name]], Color.GREEN, Color.CLEAR)
 
         print "Importing {0} XML files".format(len(file_list))
         i = 0
-        for group in grouped_files:
+        for series_name in grouped_files:
             data = []
             keys_name = ['time']
             values = defaultdict(list)
-            for field, file in grouped_files[group]:
+            for field, file in grouped_files[series_name]:
                 i += 1
                 progress_bar(i, len(file_list))
 
@@ -146,8 +175,24 @@ class InfluxdbClient:
                 content = read_xml_file(os.path.join(folder, file))
                 [values[key].append(value) for key, value in content.items()]
 
+            # join data with time as first column
             data.extend([[k]+v for k, v in values.items()])
-            self.upload_values(group, keys_name, data)
+
+            try:
+                self.upload_values(series_name, keys_name, data)
+            except Exception as e:
+                errors.append(e.message)
+                continue
+
+            try:
+                self.validate_record(series_name, keys_name, len(data))
+            except Exception as e:
+                errors.append("Validation error in {0}: {1}".format(series_name, e.message))
+
+        if errors:
+            print "The following errors were detected while importing:"
+            for error in errors:
+                print Symbol.NOK, error
 
 if __name__ == "__main__":
     e = InfluxdbClient()
