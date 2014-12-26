@@ -124,7 +124,7 @@ class InfluxdbClient:
         """
 
         if not name in self.client.get_list_series():
-            raise Exception("Series {0} doesn't exists")
+            raise Exception("Series \"{0}\" doesn't exist")
 
         for column in columns:
             if column == "time":
@@ -137,7 +137,7 @@ class InfluxdbClient:
                 except influxdb.client.InfluxDBClientError as e:
                     raise Exception(e.message)
                 except Exception as e:
-                    raise Exception("Column {0} doesn't exists", name)
+                    raise Exception("Column \"{0}\" doesn't exist".format(column))
 
         return True
 
@@ -192,7 +192,7 @@ class InfluxdbClient:
         if errors:
             print "The following errors were detected while importing:"
             for error in errors:
-                print Symbol.NOK, error
+                print "  {0}{1}{2} {3}".format(Color.RED, Symbol.NOK, Color.CLEAR, error)
 
 if __name__ == "__main__":
     e = InfluxdbClient()
