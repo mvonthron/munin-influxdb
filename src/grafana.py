@@ -1,5 +1,5 @@
 import json
-import uuid
+from utils import progress_bar
 from pprint import pprint
 
 class Query:
@@ -89,6 +89,11 @@ class Dashboard:
             "time": {"from": "now-5d", "to": "now"},
         }
 
+    def save(self, filename):
+        with open(filename, "w") as f:
+            json.dump(self.to_json(), f)
+
+
     @staticmethod
     def generate_simple(title, structure):
         """
@@ -104,10 +109,12 @@ class Dashboard:
             for col in series['columns']:
                 panel.add_query(col)
 
-        return dashboard.to_json()
+        return dashboard
 
     @staticmethod
     def generate(title, config):
+        size = sum([len(config[d][h][p]['fields']) for d in config for h in config[d] for p in config[d][h]])
+        i=0
 
         dashboard = Dashboard(title)
 
@@ -118,6 +125,9 @@ class Dashboard:
                     panel = row.add_panel(attributes['title'] or plugin, ".".join([domain, host, plugin]))
                     for field in attributes['fields']:
                         panel.add_query(field)
+                        i += 1
+                        progress_bar(i, size)
+
 
         return dashboard
 
@@ -148,7 +158,7 @@ if __name__ == "__main__":
 
     dashboard = Dashboard.generate_simple("Munin", client.list_columns())
     with open("/tmp/munin-grafana.json", "w") as f:
-        json.dump(dashboard, f, indent=2, separators=(',', ': '))
+        json.dump(dashboard.to_json(), f, indent=2, separators=(',', ': '))
     """
 
     with open("../data/config.json") as f:
