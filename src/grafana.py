@@ -2,16 +2,6 @@ import json
 import uuid
 from pprint import pprint
 
-DASHBOARD_TEMPLATE = {
-    "title": "template",
-    "id": None,
-    "tags": ["munin"],
-    "timezone": "browser",
-
-    "rows": []
-}
-
-
 class Query:
     DEFAULT_FUNC = "mean"
 
@@ -51,7 +41,10 @@ class Panel:
             "datasource": self.datasource,
             "type": "graph",
             "span": 12,
-            "targets": [query.to_json() for query in self.queries]
+            "targets": [query.to_json() for query in self.queries],
+            "tooltip": {
+                "shared": len(self.queries) > 1
+            }
         }
 
 
@@ -59,6 +52,7 @@ class Row:
     def __init__(self, title=""):
         self.title = title
         self.panels = []
+        self.height = "250px"
 
     def add_panel(self, *args, **kwargs):
         p = Panel(*args, **kwargs)
@@ -68,7 +62,7 @@ class Row:
     def to_json(self):
         return {
             "title": self.title,
-            "height": "250px",
+            "height": self.height,
             "panels": [panel.to_json() for panel in self.panels],
             "showTitle": len(self.title) > 0
         }
@@ -112,6 +106,22 @@ class Dashboard:
 
         return dashboard.to_json()
 
+    @staticmethod
+    def generate(title, config):
+
+        dashboard = Dashboard(title)
+
+        for domain in config:
+            for host in config[domain]:
+                row = dashboard.add_row("{0} / {1}".format(domain, host))
+                for plugin, attributes in config[domain][host].items():
+                    panel = row.add_panel(attributes['title'] or plugin, ".".join([domain, host, plugin]))
+                    for field in attributes['fields']:
+                        panel.add_query(field)
+
+        return dashboard
+
+
 if __name__ == "__main__":
     # main for dev/debug purpose only
     """
@@ -129,7 +139,8 @@ if __name__ == "__main__":
     # pprint(dashboard.to_json())
 
     print json.dumps(dashboard.to_json(),indent=2, separators=(',', ': '))
-    """
+
+    # ---
 
     import influxdbclient
     client = influxdbclient.InfluxdbClient("...")
@@ -138,5 +149,10 @@ if __name__ == "__main__":
     dashboard = Dashboard.generate_simple("Munin", client.list_columns())
     with open("/tmp/munin-grafana.json", "w") as f:
         json.dump(dashboard, f, indent=2, separators=(',', ': '))
+    """
 
-    
+    with open("../data/config.json") as f:
+        conf = json.load(f)
+
+    dashboard = Dashboard.generate("Munin dashboard", conf)
+    print json.dumps(dashboard.to_json(),indent=2, separators=(',', ': '))

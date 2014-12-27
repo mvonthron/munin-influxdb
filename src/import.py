@@ -38,7 +38,6 @@ def main():
     exporter.prompt_setup()
 
     exporter.import_from_xml_folder(MUNIN_XML_FOLDER)
-
     print "{0} Munin data successfully imported to {1}/db/{2}".format(Symbol.OK_GREEN, exporter.host, exporter.db_name)
 
 if __name__ == "__main__":
