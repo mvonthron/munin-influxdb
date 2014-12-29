@@ -202,7 +202,7 @@ def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing
                 print "Error:", filename, parts, length
                 continue
 
-            host, plugin, field, datatype = parts[0], "-".join(parts[1:-2]), parts[-2], parts[-1]
+            host, plugin, field, datatype = parts[0], ".".join(parts[1:-2]), parts[-2], parts[-1]
 
             if not insert_missing and (not host in structure[domain] or not plugin in structure[domain][host]):
                 if not host in not_inserted[domain]:
@@ -212,7 +212,7 @@ def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing
 
             plugin_data = structure[domain][host][plugin]
             try:
-                assert os.path.exists(os.path.join(folder, domain, "{0}-{1}-{2}-{3}.rrd".format(host, plugin, field, datatype[0])))
+                assert os.path.exists(os.path.join(folder, domain, "{0}-{1}-{2}-{3}.rrd".format(host, plugin.replace(".", "-"), field, datatype[0])))
             except AssertionError:
                 print "{0} != {1}-{2}-{3}-{4}.rrd".format(filename, host, plugin, field, datatype[0])
             else:

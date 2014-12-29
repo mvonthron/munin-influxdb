@@ -19,7 +19,7 @@ except ImportError:
 
 MUNIN_WWW_FOLDER = "/var/cache/munin/www"
 
-
+#@todo actually there is a /var/lib/munin/graphs containing the same info
 def discover_from_www(folder, structure=None):
     """
     Builds a Munin dashboard structure (domain/host/plugins) by reading the HTML files
@@ -59,7 +59,7 @@ def discover_from_www(folder, structure=None):
             elif len(elements) == 3:
                 # probably a multigraph, we'll be missing the plugin part
                 # we won't bother reading the html file for now and guess it from the RRD database later
-                host, plugin = elements[0], "-".join(elements[1:3])
+                host, plugin = elements[0], ".".join(elements[1:3])
             else:
                 print "Unknown structure"
                 continue
@@ -73,5 +73,20 @@ def discover_from_www(folder, structure=None):
 
     return structure
 
+
+def read_htmlconf_storable(filename):
+    """
+    /var/lib/munin/htmlconf.storable contains a copy of all informations required to build the graph (limits, legend, types...)
+    Parsing it should be much easier and much faster than running munin-run config
+
+    @param filename:
+    @return:
+    """
+    with open(filename) as f:
+        data = f.read()
+
+
+
+
 if __name__ == "__main__":
-    pprint(discover_from_www("data/www"))
+    read_htmlconf_storable("../data/htmlconf.storable")

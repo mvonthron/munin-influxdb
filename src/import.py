@@ -6,6 +6,7 @@ from rrd import discover_from_rrd, export_to_xml, MUNIN_RRD_FOLDER, MUNIN_XML_FO
 from influxdbclient import InfluxdbClient
 from grafana import Dashboard
 from utils import Color, Symbol
+import json
 
 def retrieve_munin_configuration():
     """
@@ -50,7 +51,17 @@ def main():
     if create_dash in ("y", "Y"):
         filename = raw_input("  Dashboard file destination [/tmp/munin-grafana.json]:").strip() or "/tmp/munin-grafana.json"
         dashboard = Dashboard.generate("Munin dashboard", settings.structure)
-        dashboard.save(filename)
+        try:
+            dashboard.save(filename)
+        except Exception as e:
+            print "{0} Could not write Grafana dashboard: {1}".format(Symbol.NOK_RED, e.message)
+        else:
+            print "{0} A Grafana dashboard has been successfully generated to {1}".format(Symbol.OK_GREEN, filename)
+            print "  Don't forget to edit your Grafana config.js file to add the new data source:"
+            print json.dumps({exporter.db_name: {
+                "type": "influxdb", "url": "http://{0}:{1}/db/{2}".format(exporter.host, exporter.port, exporter.db_name),
+                "username": exporter.user, "password": "<PASSWORD>"
+            }}, indent=2, separators=(',', ': '))
 
 if __name__ == "__main__":
     try:
