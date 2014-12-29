@@ -4,6 +4,7 @@ from collections import defaultdict
 from pprint import pprint
 
 from utils import progress_bar
+from settings import *
 
 
 try:
@@ -74,19 +75,42 @@ def discover_from_www(folder, structure=None):
     return structure
 
 
-def read_htmlconf_storable(filename):
+def discover_from_datafile(filename, settings=Settings()):
     """
     /var/lib/munin/htmlconf.storable contains a copy of all informations required to build the graph (limits, legend, types...)
     Parsing it should be much easier and much faster than running munin-run config
 
     @param filename:
-    @return:
+    @return: settings
     """
+
     with open(filename) as f:
-        data = f.read()
+        for line in f.readlines():
+            # header line
+            if line.startswith("version"):
+                continue
+            else:
+                line = line.strip()
 
+            domain, tail = line.split(";", 1)
+            host, tail = tail.split(":", 1)
+            head, value = tail.split(" ", 1)
+            plugin_parts = head.split(".")
+            plugin, field, property = ".".join(plugin_parts[0:-2]), plugin_parts[-2], plugin_parts[-1]
 
+            if len(plugin.strip()) == 0:
+                # plugin properties
+                settings.domains[domain].hosts[host].plugins[field].settings[property] = value
+                print domain, "/", host, "/", field, "/", property, " = ", value
+            else:
+                # field properties
+                settings.domains[domain].hosts[host].plugins[plugin].fields[field].settings[property] = value
+                print domain, "/", host, "/", plugin, "/", field, "/", property , " = ", value
 
+    return settings
 
 if __name__ == "__main__":
-    read_htmlconf_storable("../data/htmlconf.storable")
+    settings = discover_from_datafile("../data/datafile")
+    # acadis.org;tesla:if_eth0.up.info
+    pprint.pprint( dict(settings.domains["acadis.org"].hosts["house"].plugins["youtube_views_scilabus"].settings) )
+    pprint.pprint( dict(settings.domains["acadis.org"].hosts["tesla"].plugins["if_eth0"].fields["up"].settings) )
