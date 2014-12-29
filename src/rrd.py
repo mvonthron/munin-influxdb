@@ -111,14 +111,14 @@ def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
 
     return values
 
-def export_to_xml(source, destination=MUNIN_XML_FOLDER, config=None):
+def export_to_xml(source, destination=MUNIN_XML_FOLDER, structure=None):
     """
     Calls "rrdtool dump" to convert RRD database files in "source" folder to XML representation
     Converts all *.rrd files in source folder unless config is provided
 
     @param source:
     @param destination:
-    @param config:
+    @param structure:
     """
     assert os.path.exists(source)
     try:
@@ -127,12 +127,12 @@ def export_to_xml(source, destination=MUNIN_XML_FOLDER, config=None):
         if e.errno != errno.EEXIST:
             raise
 
-    if config is None:
+    if structure is None:
         filelist = [("", os.path.join(source, file)) for file in os.listdir(source) if file.endswith(".rrd")]
     else:
 
         filelist = [(domain, attributes['filename'])
-                    for domain, hosts in config.items()
+                    for domain, hosts in structure.items()
                         for host, plugins in hosts.items()
                             for plugin, fields in plugins.items()
                                 for field, attributes in fields['fields'].items()

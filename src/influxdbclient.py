@@ -220,5 +220,5 @@ class InfluxdbClient:
 if __name__ == "__main__":
     # main used for dev/debug purpose only, use "import"
     e = InfluxdbClient()
-    e.prompt_setup()
+    e.prompt_setup(None)
     e.import_from_xml_folder("/tmp/xml")
