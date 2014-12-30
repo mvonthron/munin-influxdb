@@ -91,7 +91,7 @@ def discover_from_datafile(filename, settings=Settings()):
                 continue
             else:
                 line = line.strip()
-
+            # ex: acadis.org;tesla:memory.swap.label swap
             domain, tail = line.split(";", 1)
             host, tail = tail.split(":", 1)
             head, value = tail.split(" ", 1)
@@ -101,11 +101,19 @@ def discover_from_datafile(filename, settings=Settings()):
             if len(plugin.strip()) == 0:
                 # plugin properties
                 settings.domains[domain].hosts[host].plugins[field].settings[property] = value
-                print domain, "/", host, "/", field, "/", property, " = ", value
             else:
                 # field properties
-                settings.domains[domain].hosts[host].plugins[plugin].fields[field].settings[property] = value
-                print domain, "/", host, "/", plugin, "/", field, "/", property , " = ", value
+                _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field].settings[property] = value
+
+    # post parsing
+    settings.nb_fields = 0
+    for domain, host, plugin, field in settings.iter_fieds():
+        settings.nb_fields += 1
+        _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]
+
+        type_suffix = _field.settings["type"].lower()[0]
+        _field.rrd_filename = "{0}/{1}-{2}-{3}-{4}.rrd".format(domain, host, plugin.replace(".", "-"), field, type_suffix)
+        _field.xml_filename = "{0}-{1}-{2}-{3}-{4}.xml".format(domain, host, plugin.replace(".", "-"), field, type_suffix)
 
     return settings
 

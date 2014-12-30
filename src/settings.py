@@ -5,11 +5,12 @@ class Field:
 
     def __init__(self):
         self.settings = defaultdict(dict)
-        self.name = None
+        #default values
+        self.settings['type'] = "GAUGE"
 
         # RRD file
         self.rrd_filename = None
-        self.rrd_database_found = None
+        self.rrd_found = None
         self.rrd_exported = None
 
         # XML
@@ -51,11 +52,13 @@ class Domain:
 
 class Settings:
     #old structure
+    def __init__(self):
+        self.domains = defaultdict(Domain)
+
     structure = defaultdict(dict)
 
-    domains = defaultdict(Domain)
-
-    total_len = 0
+    nb_plugins = 0
+    nb_fields = 0
 
     class InfluxDB:
         host, port = "localhost", 8086
@@ -65,3 +68,13 @@ class Settings:
     class Grafana:
         generate = True
         output_file = None
+
+    def iter_fieds(self):
+        """
+
+        """
+        for domain in self.domains:
+            for host in self.domains[domain].hosts:
+                for plugin in self.domains[domain].hosts[host].plugins:
+                    for field in self.domains[domain].hosts[host].plugins[plugin].fields:
+                        yield domain, host, plugin, field
