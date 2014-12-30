@@ -11,18 +11,13 @@ import json
 def retrieve_munin_configuration():
     """
     """
-    settings = Settings()
+    print "Exploring Munin structure"
 
-    #run "munin-run * config" to get list of plugins and config
-    #@todo takes too much time
-    #plugins_conf = muninplugin.retrieve_plugin_configs(PLUGIN_DIR)
-
-    #read /var/cache/munin/www to check what's currently displayed on the dashboard
-    # settings.structure = discover_from_www(MUNIN_WWW_FOLDER, settings.structure)
     try:
         settings = discover_from_datafile(MUNIN_DATAFILE)
     except:
         print "  {0} Could not process datafile, will read www and RRD cache instead".format(Symbol.NOK_RED)
+        # read /var/cache/munin/www to check what's currently displayed on the dashboard
         # settings.structure = discover_from_www(MUNIN_WWW_FOLDER, settings.structure)
         # discover_from_rrd(MUNIN_RRD_FOLDER, structure=settings.structure, insert_missing=False)
     else:
@@ -34,8 +29,7 @@ def retrieve_munin_configuration():
     except Exception as e:
         print "  {0} {1}".format(Symbol.NOK_RED, e.message)
     else:
-        print "  {0} All {1} RRD files were found".format(Symbol.OK_GREEN, settings.nb_fields)
-
+        print "  {0} Found {1} RRD files".format(Symbol.OK_GREEN, settings.nb_rrd_files)
 
     return settings
 
@@ -47,10 +41,10 @@ def main():
 
     #export RRD files as XML for (much) easier parsing
     #(but takes much more time)
-    export_to_xml(MUNIN_RRD_FOLDER, structure=settings.structure)
+    export_to_xml_new(settings, MUNIN_RRD_FOLDER)
 
     #reads every XML file and export as in the InfluxDB database
-    exporter = InfluxdbClient()
+    exporter = InfluxdbClient(settings)
     exporter.prompt_setup()
 
     exporter.import_from_xml_folder(MUNIN_XML_FOLDER)

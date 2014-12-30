@@ -9,11 +9,13 @@ from rrd import read_xml_file
 
 
 class InfluxdbClient:
-    def __init__(self, hostname="root@localhost:8086"):
+    def __init__(self, settings, hostname="root@localhost:8086"):
         self.user, self.passwd, self.host, self.port, self.db_name = parse_handle(hostname)
         self.group_fields = True
         self.client = None
         self.valid = False
+
+        self.settings = settings
 
     def connect(self, silent=False):
         try:

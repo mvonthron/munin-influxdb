@@ -59,6 +59,7 @@ class Settings:
 
     nb_plugins = 0
     nb_fields = 0
+    nb_rrd_files = 0
 
     class InfluxDB:
         host, port = "localhost", 8086

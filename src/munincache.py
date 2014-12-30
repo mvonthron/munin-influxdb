@@ -123,10 +123,9 @@ def discover_from_datafile(filename, settings=Settings()):
             mg_plugin, mg_field = plugin.split(".")
             if mg_plugin in settings.domains[domain].hosts[host].plugins \
                 and mg_field in settings.domains[domain].hosts[host].plugins[mg_plugin].fields:
-                
+
                 del settings.domains[domain].hosts[host].plugins[mg_plugin].fields[mg_field]
                 settings.nb_fields -= 1
-
 
     return settings
 

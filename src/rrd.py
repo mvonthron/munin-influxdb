@@ -5,6 +5,7 @@ import math
 from collections import defaultdict
 from pprint import pformat
 import xml.etree.ElementTree as ET
+from settings import Settings
 
 from datetime import datetime
 from utils import progress_bar, Symbol
@@ -111,6 +112,30 @@ def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
             entry_date += entry_delta
 
     return values
+
+def export_to_xml_new(settings, source, destination=MUNIN_XML_FOLDER):
+    i = 0
+    assert os.path.exists(source)
+    try:
+        os.makedirs(destination)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+    print "Exporting RRD databases:".format(settings.nb_rrd_files)
+    for domain, host, plugin, field in settings.iter_fieds():
+        _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]
+
+        if _field.rrd_found:
+            i += 1
+            src = os.path.join(source, _field.rrd_filename)
+            dst = os.path.join(destination, _field.xml_filename)
+            progress_bar(i, settings.nb_rrd_files)
+
+            code = subprocess.check_call(['rrdtool', 'dump', src, dst])
+            if code == 0:
+                _field.rrd_exported = True
+
 
 def export_to_xml(source, destination=MUNIN_XML_FOLDER, structure=None):
     """
@@ -242,6 +267,7 @@ def check_rrd_files(settings, folder=MUNIN_RRD_FOLDER):
             missing.append(_field.rrd_filename)
         else:
             _field.rrd_found = True
+            settings.nb_rrd_files += 1
 
     if len(missing):
         raise Exception("Not found in {0}:\n    - {1}".format(folder, "\n    - ".join(missing)))
