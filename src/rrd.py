@@ -3,6 +3,7 @@ import errno
 import subprocess
 import math
 from collections import defaultdict
+from pprint import pformat
 import xml.etree.ElementTree as ET
 
 from datetime import datetime
@@ -227,3 +228,21 @@ def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing
                 print "    {0} Host {1}: {2}".format(Symbol.NOK_RED, host, ", ".join(plugins))
 
     return structure
+
+
+def check_rrd_files(settings, folder=MUNIN_RRD_FOLDER):
+    missing = []
+    for domain, host, plugin, field in settings.iter_fieds():
+        _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]
+        # print "{0}[{1}]: {2}".format(plugin, field, _field.rrd_filename)
+        exists = os.path.exists(os.path.join(folder, _field.rrd_filename))
+
+        if not exists:
+            _field.rrd_found = False
+            missing.append(_field.rrd_filename)
+        else:
+            _field.rrd_found = True
+
+    if len(missing):
+        raise Exception("Not found in {0}:\n    - {1}".format(folder, "\n    - ".join(missing)))
+

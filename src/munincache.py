@@ -19,6 +19,7 @@ except ImportError:
 
 
 MUNIN_WWW_FOLDER = "/var/cache/munin/www"
+MUNIN_DATAFILE = "/var/lib/munin/datafile"
 
 #@todo actually there is a /var/lib/munin/graphs containing the same info
 def discover_from_www(folder, structure=None):
@@ -80,7 +81,7 @@ def discover_from_datafile(filename, settings=Settings()):
     /var/lib/munin/htmlconf.storable contains a copy of all informations required to build the graph (limits, legend, types...)
     Parsing it should be much easier and much faster than running munin-run config
 
-    @param filename:
+    @param filename: usually /var/lib/munin/datafile
     @return: settings
     """
 
@@ -98,6 +99,9 @@ def discover_from_datafile(filename, settings=Settings()):
             plugin_parts = head.split(".")
             plugin, field, property = ".".join(plugin_parts[0:-2]), plugin_parts[-2], plugin_parts[-1]
 
+            # if plugin.startswith("diskstats"):
+            #     print head, plugin_parts, len(plugin_parts), value
+
             if len(plugin.strip()) == 0:
                 # plugin properties
                 settings.domains[domain].hosts[host].plugins[field].settings[property] = value
@@ -106,14 +110,23 @@ def discover_from_datafile(filename, settings=Settings()):
                 _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field].settings[property] = value
 
     # post parsing
-    settings.nb_fields = 0
     for domain, host, plugin, field in settings.iter_fieds():
-        settings.nb_fields += 1
         _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]
+        settings.nb_fields += 1
 
         type_suffix = _field.settings["type"].lower()[0]
         _field.rrd_filename = "{0}/{1}-{2}-{3}-{4}.rrd".format(domain, host, plugin.replace(".", "-"), field, type_suffix)
         _field.xml_filename = "{0}-{1}-{2}-{3}-{4}.xml".format(domain, host, plugin.replace(".", "-"), field, type_suffix)
+
+        # remove multigraph intermediates
+        if '.' in plugin:
+            mg_plugin, mg_field = plugin.split(".")
+            if mg_plugin in settings.domains[domain].hosts[host].plugins \
+                and mg_field in settings.domains[domain].hosts[host].plugins[mg_plugin].fields:
+                
+                del settings.domains[domain].hosts[host].plugins[mg_plugin].fields[mg_field]
+                settings.nb_fields -= 1
+
 
     return settings
 

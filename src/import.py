@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 from settings import Settings
-from munincache import discover_from_www, MUNIN_WWW_FOLDER
-from rrd import discover_from_rrd, export_to_xml, MUNIN_RRD_FOLDER, MUNIN_XML_FOLDER
+from munincache import discover_from_datafile, MUNIN_DATAFILE
+from rrd import *
 from influxdbclient import InfluxdbClient
 from grafana import Dashboard
 from utils import Color, Symbol
@@ -18,12 +18,24 @@ def retrieve_munin_configuration():
     #plugins_conf = muninplugin.retrieve_plugin_configs(PLUGIN_DIR)
 
     #read /var/cache/munin/www to check what's currently displayed on the dashboard
-    settings.structure = discover_from_www(MUNIN_WWW_FOLDER, settings.structure)
-    print ""
+    # settings.structure = discover_from_www(MUNIN_WWW_FOLDER, settings.structure)
+    try:
+        settings = discover_from_datafile(MUNIN_DATAFILE)
+    except:
+        print "  {0} Could not process datafile, will read www and RRD cache instead".format(Symbol.NOK_RED)
+        # settings.structure = discover_from_www(MUNIN_WWW_FOLDER, settings.structure)
+        # discover_from_rrd(MUNIN_RRD_FOLDER, structure=settings.structure, insert_missing=False)
+    else:
+        print "  {0} Found {1}: extracted {2} measurement units".format(Symbol.OK_GREEN, MUNIN_DATAFILE, settings.nb_fields)
 
     #for each host, find the /var/lib/munin/<host> directory and check if node name and plugin conf match RRD files
-    discover_from_rrd(MUNIN_RRD_FOLDER, structure=settings.structure, insert_missing=False)
-    print ""
+    try:
+        check_rrd_files(settings)
+    except Exception as e:
+        print "  {0} {1}".format(Symbol.NOK_RED, e.message)
+    else:
+        print "  {0} All {1} RRD files were found".format(Symbol.OK_GREEN, settings.nb_fields)
+
 
     return settings
 
