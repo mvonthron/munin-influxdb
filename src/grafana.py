@@ -31,6 +31,7 @@ class Panel:
         self.datasource = None
         self.fill = 0
         self.stack = False
+        self.leftYAxisLabel = None
 
         self.query_per_row = 2
 
@@ -66,6 +67,7 @@ class Panel:
                 "alignAsTable": True,
                 "rightSide": False
             },
+            "leftYAxisLabel": self.leftYAxisLabel
         }
 
 
@@ -164,6 +166,10 @@ class Dashboard:
 
                     if "graph_vlabel" in _plugin.settings:
                         panel.leftYAxisLabel = _plugin.settings["graph_vlabel"]
+                        # perform placeholder substitutions
+                        panel.leftYAxisLabel = panel.leftYAxisLabel.replace("${graph_period}",
+                                                                            _plugin.settings.get("graph_period", "second"))
+
                     if "graph_order" in _plugin.settings:
                         panel.sort_queries(_plugin.settings["graph_order"])
 
