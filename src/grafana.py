@@ -70,6 +70,25 @@ class Panel:
             "leftYAxisLabel": self.leftYAxisLabel
         }
 
+class HeaderPanel(Panel):
+    def __init__(self, title):
+        self.title = title
+        self.content = ""
+
+    def to_json(self):
+        return {
+            "title": self.title,
+            "mode": "markdown",
+            "type": "text",
+            "editable": True,
+            "span": 12,
+            "links": [{
+                "type": "absolute",
+                "title": "Fork me on GitHub!",
+                "url": "https://github.com/mvonthron/munin-influxdb",
+            }],
+            "content": self.content
+        }
 
 class Row:
     def __init__(self, title=""):
@@ -90,7 +109,6 @@ class Row:
             "showTitle": len(self.title) > 0
         }
 
-
 class Dashboard:
     def __init__(self, title):
         self.title = title
@@ -98,8 +116,29 @@ class Dashboard:
         self.tags = []
         self.datasource = None
 
-    def add_header(self):
+
+    def prompt_setup(self):
         pass
+
+    def add_header(self, settings):
+        row = Row("")
+        panel = HeaderPanel("Welcome")
+        panel.content = \
+"""
+Thanks for using Munin-InfluxDB and the Grafana generator.
+
+Don't forget to add the new database provider in Grafana's `settings.js` if
+necessary:
+
+    "dbname": {
+        "type": "influxdb"
+        "url": "http://localhost:8086/db/None",
+        "username": "root",
+        "password": "********",
+    }
+"""
+        row.panels.append(panel)
+        self.rows.append(row)
 
     def add_row(self, title=""):
         row = Row(title)
@@ -140,6 +179,7 @@ class Dashboard:
 
     def generate(self, settings):
         i = 0
+        self.add_header(settings)
 
         for domain in settings.domains:
             for host in settings.domains[domain].hosts:
@@ -162,13 +202,13 @@ class Dashboard:
                                 panel.stack = True
 
                         i += 1
-                        # progress_bar(i, settings.nb_rrd_files)
+                        progress_bar(i, settings.nb_rrd_files)
 
                     if "graph_vlabel" in _plugin.settings:
-                        panel.leftYAxisLabel = _plugin.settings["graph_vlabel"]
-                        # perform placeholder substitutions
-                        panel.leftYAxisLabel = panel.leftYAxisLabel.replace("${graph_period}",
-                                                                            _plugin.settings.get("graph_period", "second"))
+                        panel.leftYAxisLabel = _plugin.settings["graph_vlabel"].replace(
+                            "${graph_period}",
+                            _plugin.settings.get("graph_period", "second")
+                        )
 
                     if "graph_order" in _plugin.settings:
                         panel.sort_queries(_plugin.settings["graph_order"])
