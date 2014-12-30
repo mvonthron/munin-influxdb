@@ -56,7 +56,9 @@ def main():
     create_dash = raw_input("Would you like to generate a Grafana dashboard? [y]/n") or "y"
     if create_dash in ("y", "Y"):
         filename = raw_input("  Dashboard file destination [/tmp/munin-grafana.json]:").strip() or "/tmp/munin-grafana.json"
-        dashboard = Dashboard.generate("Munin dashboard", settings.structure)
+        dashboard = Dashboard("Munin dashboard")
+        dashboard.generate(settings)
+
         try:
             dashboard.save(filename)
         except Exception as e:

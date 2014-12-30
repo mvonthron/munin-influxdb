@@ -20,7 +20,7 @@ class Query:
                                                                                                                 self.column,
                                                                                                                 self.series),
             "rawQuery": False,
-            "alias": self.alias
+            "alias": self.alias,
         }
 
 class Panel:
@@ -29,6 +29,10 @@ class Panel:
         self.series = series
         self.queries = []
         self.datasource = None
+        self.fill = 0
+        self.stack = False
+
+        self.query_per_row = 2
 
     def add_query(self, column):
         query = Query(self.series, column)
@@ -39,12 +43,25 @@ class Panel:
         return {
             "title": self.title,
             "datasource": self.datasource,
+            "stack": self.stack,
+            "fill": self.fill,
             "type": "graph",
-            "span": 12,
+            "span": 12//self.query_per_row,
             "targets": [query.to_json() for query in self.queries],
             "tooltip": {
                 "shared": len(self.queries) > 1
-            }
+            },
+            "legend": {
+                "show": True,
+                "values": True,
+                "min": True,
+                "max": True,
+                "current": True,
+                "total": False,
+                "avg": True,
+                "alignAsTable": True,
+                "rightSide": False
+            },
         }
 
 
@@ -111,25 +128,31 @@ class Dashboard:
 
         return dashboard
 
-    @staticmethod
-    def generate(title, config):
-        size = sum([len(config[d][h][p]['fields']) for d in config for h in config[d] for p in config[d][h]])
-        i=0
 
-        dashboard = Dashboard(title)
+    def generate(self, settings):
+        i = 0
 
-        for domain in config:
-            for host in config[domain]:
-                row = dashboard.add_row("{0} / {1}".format(domain, host))
-                for plugin, attributes in config[domain][host].items():
-                    panel = row.add_panel(attributes['title'] or plugin, ".".join([domain, host, plugin]))
-                    for field in attributes['fields']:
-                        panel.add_query(field)
+        for domain in settings.domains:
+            for host in settings.domains[domain].hosts:
+                row = self.add_row("{0} / {1}".format(domain, host))
+                for plugin in settings.domains[domain].hosts[host].plugins:
+                    _plugin = settings.domains[domain].hosts[host].plugins[plugin]
+                    panel = row.add_panel(_plugin.settings["graph_title"] or plugin, ".".join([domain, host, plugin]))
+
+                    for field in _plugin.fields:
+                        query = panel.add_query(field)
+
+                        if "label" in _plugin.fields[field].settings:
+                            query.alias = _plugin.fields[field].settings["label"]
+                        if "draw" in _plugin.fields[field].settings:
+                            draw = _plugin.fields[field].settings["draw"]
+                            if draw == "AREA":
+                                panel.fill = 5
+                            if draw == "STACK":
+                                panel.stack = True
+
                         i += 1
-                        progress_bar(i, size)
-
-
-        return dashboard
+                        progress_bar(i, settings.nb_rrd_files)
 
 
 if __name__ == "__main__":
@@ -164,5 +187,6 @@ if __name__ == "__main__":
     with open("../data/config.json") as f:
         conf = json.load(f)
 
-    dashboard = Dashboard.generate("Munin dashboard", conf)
+    dashboard = Dashboard("Munin dashboard")
+    dashboard.generate(conf)
     print json.dumps(dashboard.to_json(),indent=2, separators=(',', ': '))
