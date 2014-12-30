@@ -39,6 +39,10 @@ class Panel:
         self.queries.append(query)
         return query
 
+    def sort_queries(self, order):
+        ordered_keys = order.split()
+        self.queries.sort(key=lambda x: ordered_keys.index(x.column) if x.column in ordered_keys else len(self.queries))
+
     def to_json(self):
         return {
             "title": self.title,
@@ -92,6 +96,9 @@ class Dashboard:
         self.tags = []
         self.datasource = None
 
+    def add_header(self):
+        pass
+
     def add_row(self, title=""):
         row = Row(title)
         self.rows.append(row)
@@ -144,6 +151,7 @@ class Dashboard:
 
                         if "label" in _plugin.fields[field].settings:
                             query.alias = _plugin.fields[field].settings["label"]
+
                         if "draw" in _plugin.fields[field].settings:
                             draw = _plugin.fields[field].settings["draw"]
                             if draw == "AREA":
@@ -152,7 +160,13 @@ class Dashboard:
                                 panel.stack = True
 
                         i += 1
-                        progress_bar(i, settings.nb_rrd_files)
+                        # progress_bar(i, settings.nb_rrd_files)
+
+                    if "graph_vlabel" in _plugin.settings:
+                        panel.leftYAxisLabel = _plugin.settings["graph_vlabel"]
+                    if "graph_order" in _plugin.settings:
+                        panel.sort_queries(_plugin.settings["graph_order"])
+
 
 
 if __name__ == "__main__":
