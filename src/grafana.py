@@ -33,7 +33,7 @@ class Panel:
         self.stack = False
         self.leftYAxisLabel = None
 
-        self.query_per_row = 2
+        self.width = 6
 
     def add_query(self, column):
         query = Query(self.series, column)
@@ -51,7 +51,7 @@ class Panel:
             "stack": self.stack,
             "fill": self.fill,
             "type": "graph",
-            "span": 12//self.query_per_row,
+            "span": self.width,
             "targets": [query.to_json() for query in self.queries],
             "tooltip": {
                 "shared": len(self.queries) > 1
@@ -116,9 +116,19 @@ class Dashboard:
         self.tags = []
         self.datasource = None
 
+        self.filename = "/tmp/munin-grafana.json"
+        self.show_minmax = True
+        self.graph_per_row = 2
 
     def prompt_setup(self):
-        pass
+        self.filename = raw_input("  Dashboard file destination [/tmp/munin-grafana.json]:").strip() or "/tmp/munin-grafana.json"
+
+        graph_per_row = raw_input("  Number of graphs per row [2]:").strip() or "2"
+        self.graph_per_row = int(graph_per_row)
+
+        show_minmax = raw_input("   Show min/max/current in legend [y]/n:").strip() or "y"
+        self.show_minmax = show_minmax in ("y", "Y")
+
 
     def add_header(self, settings):
         row = Row("")
@@ -154,7 +164,10 @@ necessary:
             "time": {"from": "now-5d", "to": "now"},
         }
 
-    def save(self, filename):
+    def save(self, filename=None):
+        if filename is None:
+            filename = self.filename
+
         with open(filename, "w") as f:
             json.dump(self.to_json(), f)
 
@@ -187,6 +200,7 @@ necessary:
                 for plugin in settings.domains[domain].hosts[host].plugins:
                     _plugin = settings.domains[domain].hosts[host].plugins[plugin]
                     panel = row.add_panel(_plugin.settings["graph_title"] or plugin, ".".join([domain, host, plugin]))
+                    panel.width = 12//self.graph_per_row
 
                     for field in _plugin.fields:
                         query = panel.add_query(field)
@@ -212,7 +226,6 @@ necessary:
 
                     if "graph_order" in _plugin.settings:
                         panel.sort_queries(_plugin.settings["graph_order"])
-
 
 
 if __name__ == "__main__":
