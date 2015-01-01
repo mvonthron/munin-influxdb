@@ -33,6 +33,7 @@ class Panel:
         self.stack = False
         self.leftYAxisLabel = None
         self.overrides = []
+        self.thresholds = {}
         self.width = 6
 
     def add_query(self, column):
@@ -44,13 +45,54 @@ class Panel:
         ordered_keys = order.split()
         self.queries.sort(key=lambda x: ordered_keys.index(x.column) if x.column in ordered_keys else len(self.queries))
 
-    def process_graph_type(self, plugin):
+    def process_graph_settings(self, plugin_settings):
+        if "graph_vlabel" in plugin_settings:
+            self.leftYAxisLabel = plugin_settings["graph_vlabel"].replace(
+                "${graph_period}",
+                plugin_settings.get("graph_period", "second")
+            )
+
+        if "graph_order" in plugin_settings:
+            self.sort_queries(plugin_settings["graph_order"])
+
+
+    def process_graph_thresholds(self, fields):
+        """
+        @see http://munin-monitoring.org/wiki/fieldname.warning
+        @see http://munin-monitoring.org/wiki/fieldname.critical
+        """
+        warnings = {fields[field].settings.get("warning") for field in fields if "warnings" in fields[field].settings}
+        criticals = {fields[field].settings.get("critical") for field in fields if "critical" in fields[field].settings}
+
+        if len(warnings) > 1 or len(criticals) > 1:
+            # per-metric thresholds are not supported right now
+            return
+
+        if warnings or criticals:
+            self.thresholds = {"thresholdLine": False}
+
+        # format = min:max
+        # min threshold not supported by Grafana :(
+        if criticals:
+            val = criticals.pop().split(":")
+            if val[-1]:
+                self.thresholds["threshold2"] = int(val[-1])
+            # critical doesn't show up if warning is not set to something
+            self.thresholds["threshold1"] = self.thresholds["threshold2"]
+
+        if warnings:
+            val = warnings.pop().split(":")
+            if val[-1]:
+                self.thresholds["threshold1"] = int(val[-1])
+
+
+    def process_graph_types(self, fields):
         """
         Munin processes draw types on a per metric basis whereas Grafana sets the type for
         the whole panel. However overrides are possible since https://github.com/grafana/grafana/issues/425
-        http://munin-monitoring.org/wiki/fieldname.draw
+        @see http://munin-monitoring.org/wiki/fieldname.draw
         """
-        draw_list = [(field, plugin.fields[field].settings.get("draw", "LINE2")) for field in plugin.fields]
+        draw_list = [(field, fields[field].settings.get("draw", "LINE2")) for field in fields]
         hasStack = bool([x for x, y in draw_list if "STACK" in y])
         hasArea = bool([x for x, y in draw_list if "AREA" in y])
 
@@ -97,6 +139,7 @@ class Panel:
                 "alignAsTable": settings.grafana.show_minmax,
                 "rightSide": False
             },
+            "grid": self.thresholds,
             "seriesOverrides": self.overrides,
             "leftYAxisLabel": self.leftYAxisLabel,
         }
@@ -231,36 +274,18 @@ necessary:
                 for plugin in self.settings.domains[domain].hosts[host].plugins:
                     _plugin = self.settings.domains[domain].hosts[host].plugins[plugin]
                     panel = row.add_panel(_plugin.settings["graph_title"] or plugin, ".".join([domain, host, plugin]))
-                    panel.width = 12//self.settings.grafana.graph_per_row
 
                     for field in _plugin.fields:
                         query = panel.add_query(field)
-
                         if "label" in _plugin.fields[field].settings:
                             query.alias = _plugin.fields[field].settings["label"]
-
-                        if "draw" in _plugin.fields[field].settings:
-                            draw = _plugin.fields[field].settings["draw"]
-                            if draw == "AREA":
-                                panel.fill = 5
-                            if draw == "STACK":
-                                panel.stack = True
-                            if draw.startswith("LINE"):
-                                pass
-
                         i += 1
                         progress_bar(i, self.settings.nb_rrd_files)
 
-                    if "graph_vlabel" in _plugin.settings:
-                        panel.leftYAxisLabel = _plugin.settings["graph_vlabel"].replace(
-                            "${graph_period}",
-                            _plugin.settings.get("graph_period", "second")
-                        )
-
-                    if "graph_order" in _plugin.settings:
-                        panel.sort_queries(_plugin.settings["graph_order"])
-
-                    panel.process_graph_type(_plugin)
+                    panel.width = 12//self.settings.grafana.graph_per_row
+                    panel.process_graph_settings(_plugin.settings)
+                    panel.process_graph_thresholds(_plugin.fields)
+                    panel.process_graph_types(_plugin.fields)
 
 if __name__ == "__main__":
     # main for dev/debug purpose only
