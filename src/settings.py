@@ -61,14 +61,16 @@ class Settings:
     nb_fields = 0
     nb_rrd_files = 0
 
-    class InfluxDB:
+    class grafana:
+        filename = "/tmp/munin-grafana.json"
+        graph_per_row = 2
+        show_minmax = True
+
+    class influxdb:
         host, port = "localhost", 8086
         user, passwd = "root", None
         database = "munin"
 
-    class Grafana:
-        generate = True
-        output_file = None
 
     def iter_fieds(self):
         """

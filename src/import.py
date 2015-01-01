@@ -55,21 +55,16 @@ def main():
     print "{0}Grafaba dashboard{1}".format(Color.BOLD, Color.CLEAR)
     create_dash = raw_input("Would you like to generate a Grafana dashboard? [y]/n") or "y"
     if create_dash in ("y", "Y"):
-        filename = raw_input("  Dashboard file destination [/tmp/munin-grafana.json]:").strip() or "/tmp/munin-grafana.json"
         dashboard = Dashboard("Munin dashboard")
-        dashboard.generate(settings)
+        dashboard.prompt_setup(settings)
+        dashboard.generate()
 
         try:
-            dashboard.save(filename)
+            dashboard.save()
         except Exception as e:
             print "{0} Could not write Grafana dashboard: {1}".format(Symbol.NOK_RED, e.message)
         else:
-            print "{0} A Grafana dashboard has been successfully generated to {1}".format(Symbol.OK_GREEN, filename)
-            print "  Don't forget to edit your Grafana config.js file to add the new data source:"
-            print json.dumps({exporter.db_name: {
-                "type": "influxdb", "url": "http://{0}:{1}/db/{2}".format(exporter.host, exporter.port, exporter.db_name),
-                "username": exporter.user, "password": "<PASSWORD>"
-            }}, indent=2, separators=(',', ': '))
+            print "{0} A Grafana dashboard has been successfully generated to {1}".format(Symbol.OK_GREEN, settings.grafana.filename)
 
 if __name__ == "__main__":
     try:

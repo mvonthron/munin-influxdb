@@ -1,6 +1,7 @@
 import json
 from utils import progress_bar
 from pprint import pprint
+from settings import Settings
 
 class Query:
     DEFAULT_FUNC = "mean"
@@ -11,7 +12,7 @@ class Query:
         self.column = column
         self.alias = self.column
 
-    def to_json(self):
+    def to_json(self, settings):
         return {
             "function": self.func,
             "column": self.column,
@@ -28,7 +29,6 @@ class Panel:
         self.title = title
         self.series = series
         self.queries = []
-        self.datasource = None
         self.fill = 0
         self.stack = False
         self.leftYAxisLabel = None
@@ -44,30 +44,31 @@ class Panel:
         ordered_keys = order.split()
         self.queries.sort(key=lambda x: ordered_keys.index(x.column) if x.column in ordered_keys else len(self.queries))
 
-    def to_json(self):
+    def to_json(self, settings):
         return {
             "title": self.title,
-            "datasource": self.datasource,
+            "datasource": settings.influxdb.database,
             "stack": self.stack,
             "fill": self.fill,
             "type": "graph",
             "span": self.width,
-            "targets": [query.to_json() for query in self.queries],
+            "targets": [query.to_json(settings) for query in self.queries],
             "tooltip": {
-                "shared": len(self.queries) > 1
+                "shared": len(self.queries) > 1,
+                "value_type": "individual"
             },
             "legend": {
                 "show": True,
                 "values": True,
-                "min": True,
-                "max": True,
-                "current": True,
+                "min": settings.grafana.show_minmax,
+                "max": settings.grafana.show_minmax,
+                "current": settings.grafana.show_minmax,
                 "total": False,
-                "avg": True,
-                "alignAsTable": True,
+                "avg": settings.grafana.show_minmax,
+                "alignAsTable": settings.grafana.show_minmax,
                 "rightSide": False
             },
-            "leftYAxisLabel": self.leftYAxisLabel
+            "leftYAxisLabel": self.leftYAxisLabel,
         }
 
 class HeaderPanel(Panel):
@@ -75,7 +76,7 @@ class HeaderPanel(Panel):
         self.title = title
         self.content = ""
 
-    def to_json(self):
+    def to_json(self, _):
         return {
             "title": self.title,
             "mode": "markdown",
@@ -101,11 +102,12 @@ class Row:
         self.panels.append(p)
         return p
 
-    def to_json(self):
+    def to_json(self, settings):
+        self.panels.sort(key=lambda x: x.series)
         return {
             "title": self.title,
             "height": self.height,
-            "panels": [panel.to_json() for panel in self.panels],
+            "panels": [panel.to_json(settings) for panel in self.panels],
             "showTitle": len(self.title) > 0
         }
 
@@ -114,21 +116,19 @@ class Dashboard:
         self.title = title
         self.rows = []
         self.tags = []
-        self.datasource = None
+        self.settings = Settings()
 
-        self.filename = "/tmp/munin-grafana.json"
-        self.show_minmax = True
-        self.graph_per_row = 2
+    def prompt_setup(self, settings=Settings()):
+        self.settings = settings
+        setup = self.settings.grafana
 
-    def prompt_setup(self):
-        self.filename = raw_input("  Dashboard file destination [/tmp/munin-grafana.json]:").strip() or "/tmp/munin-grafana.json"
+        setup.filename = raw_input("  Dashboard file destination [/tmp/munin-grafana.json]:").strip() or "/tmp/munin-grafana.json"
 
         graph_per_row = raw_input("  Number of graphs per row [2]:").strip() or "2"
-        self.graph_per_row = int(graph_per_row)
+        setup.graph_per_row = int(graph_per_row)
 
-        show_minmax = raw_input("   Show min/max/current in legend [y]/n:").strip() or "y"
-        self.show_minmax = show_minmax in ("y", "Y")
-
+        show_minmax = raw_input("  Show min/max/current in legend [y]/n:").strip() or "y"
+        setup.show_minmax = show_minmax in ("y", "Y")
 
     def add_header(self, settings):
         row = Row("")
@@ -155,21 +155,21 @@ necessary:
         self.rows.append(row)
         return row
 
-    def to_json(self):
+    def to_json(self, settings):
         return {
             "id": None,
             "title": self.title,
             "tags": self.tags,
-            "rows": [row.to_json() for row in self.rows],
+            "rows": [row.to_json(settings) for row in self.rows],
             "time": {"from": "now-5d", "to": "now"},
         }
 
     def save(self, filename=None):
         if filename is None:
-            filename = self.filename
+            filename = self.settings.grafana.filename
 
         with open(filename, "w") as f:
-            json.dump(self.to_json(), f)
+            json.dump(self.to_json(self.settings), f)
 
 
     @staticmethod
@@ -190,17 +190,17 @@ necessary:
         return dashboard
 
 
-    def generate(self, settings):
+    def generate(self):
         i = 0
-        self.add_header(settings)
+        self.add_header(self.settings)
 
-        for domain in settings.domains:
-            for host in settings.domains[domain].hosts:
+        for domain in self.settings.domains:
+            for host in self.settings.domains[domain].hosts:
                 row = self.add_row("{0} / {1}".format(domain, host))
-                for plugin in settings.domains[domain].hosts[host].plugins:
-                    _plugin = settings.domains[domain].hosts[host].plugins[plugin]
+                for plugin in self.settings.domains[domain].hosts[host].plugins:
+                    _plugin = self.settings.domains[domain].hosts[host].plugins[plugin]
                     panel = row.add_panel(_plugin.settings["graph_title"] or plugin, ".".join([domain, host, plugin]))
-                    panel.width = 12//self.graph_per_row
+                    panel.width = 12//self.settings.grafana.graph_per_row
 
                     for field in _plugin.fields:
                         query = panel.add_query(field)
@@ -216,7 +216,7 @@ necessary:
                                 panel.stack = True
 
                         i += 1
-                        progress_bar(i, settings.nb_rrd_files)
+                        progress_bar(i, self.settings.nb_rrd_files)
 
                     if "graph_vlabel" in _plugin.settings:
                         panel.leftYAxisLabel = _plugin.settings["graph_vlabel"].replace(
