@@ -33,6 +33,7 @@ Grafana layout settings are imported from Munin plugin's configuration. Supporte
   - Graph orders
   - Aliases
   - Tooltip overlays
+  - Metrics colors
   - Multigraphs (partial support)
 
 ![Dashboard](http://i.imgur.com/pddwXD4.png)
