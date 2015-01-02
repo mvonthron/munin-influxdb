@@ -114,13 +114,13 @@ class Panel:
             # LINE* should be matched *but not* LINESTACK*
             if hasStack and draw.startswith("LINE") and not draw.startswith("LINESTACK"):
                 current["stack"] = False
-                current["linewidth"] = int(draw[-1])/2 #
+                current["linewidth"] = int(draw[-1])/2 # lines appear bigger on Grafana
 
             if len(current) > 1:
                 self.overrides.append(current)
 
         # colors
-        self.alias_colors = {field: fields[field].settings.get("colour") for field in fields if "colour" in fields[field].settings}
+        self.alias_colors = {field: '#'+fields[field].settings.get("colour") for field in fields if "colour" in fields[field].settings}
 
     def to_json(self, settings):
         return {
