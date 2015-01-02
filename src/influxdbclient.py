@@ -60,7 +60,7 @@ class InfluxdbClient:
 
         # dummy query to test db
         try:
-            res = self.client.query('select * from /.*/ limit 1;')
+            res = self.client.query('list series')
         except influxdb.client.InfluxDBClientError as e:
             print "Error: could not query database: ", e.message
             return False
