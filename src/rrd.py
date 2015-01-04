@@ -16,10 +16,10 @@ MUNIN_XML_FOLDER = "/tmp/xml"
 
 # RRD types
 DATA_TYPES = {
-    'a': 'absolute',
-    'c': 'counter',
-    'd': 'derive',
-    'g': 'gauge',
+    'a': 'ABSOLUTE',
+    'c': 'COUNTER',
+    'd': 'DERIVE',
+    'g': 'GAUGE',
 }
 
 
@@ -181,7 +181,7 @@ def export_to_xml(source, destination=MUNIN_XML_FOLDER, structure=None):
     return nb_files
 
 
-def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing=False):
+def discover_from_rrd(folder, settings=Settings(), insert_missing=True, print_missing=False):
     """
     Builds a Munin dashboard structure (domain/host/plugins) by listing the files in the RRD folder
 
@@ -197,8 +197,6 @@ def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing
 
     print "Reading Munin RRD cache: ({0})".format(folder)
 
-    if structure is None:
-        structure = defaultdict(dict)
     not_inserted = defaultdict(dict)
 
     for domain in os.listdir(folder):
@@ -206,7 +204,7 @@ def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing
             #domains are represented as folders
             continue
 
-        if not insert_missing and not domain in structure:
+        if not insert_missing and not domain in settings.domains:
             #skip unknown domains (probably no longer wanted)
             continue
 
@@ -230,20 +228,26 @@ def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing
 
             host, plugin, field, datatype = parts[0], ".".join(parts[1:-2]), parts[-2], parts[-1]
 
-            if not insert_missing and (not host in structure[domain] or not plugin in structure[domain][host]):
+            if not insert_missing and (not host in settings.domains[domain].hosts or not plugin in settings.domains[domain].hosts[host].plugins):
                 if not host in not_inserted[domain]:
                     not_inserted[domain][host] = set()
                 not_inserted[domain][host].add(plugin)
                 continue
 
-            plugin_data = structure[domain][host][plugin]
+            plugin_data = settings.domains[domain].hosts[host].plugins[plugin]
             try:
                 assert os.path.exists(os.path.join(folder, domain, "{0}-{1}-{2}-{3}.rrd".format(host, plugin.replace(".", "-"), field, datatype[0])))
             except AssertionError:
                 print "{0} != {1}-{2}-{3}-{4}.rrd".format(filename, host, plugin, field, datatype[0])
+                plugin_data.fields[field].rrd_found = False
             else:
-                plugin_data["rrd_found"] = True
-                plugin_data["fields"][field] = {'type': DATA_TYPES[datatype], 'filename': filename}
+                plugin_data.fields[field].rrd_found = True
+                plugin_data.fields[field].rrd_filename = "{0}/{1}".format(domain, filename)
+                plugin_data.fields[field].xml_filename = "{0}-{1}".format(domain, filename.replace(".rrd", ".xml"))
+                plugin_data.fields[field].settings = {
+                    "type": DATA_TYPES[datatype]
+                }
+                settings.nb_fields += 1
 
     if print_missing and len(not_inserted):
         print "The following plugin databases were ignored"
@@ -252,7 +256,7 @@ def discover_from_rrd(folder, structure=None, insert_missing=True, print_missing
             for host, plugins in hosts.items():
                 print "    {0} Host {1}: {2}".format(Symbol.NOK_RED, host, ", ".join(plugins))
 
-    return structure
+    return settings
 
 
 def check_rrd_files(settings, folder=MUNIN_RRD_FOLDER):
