@@ -25,7 +25,7 @@ class InfluxdbClient:
         except influxdb.client.InfluxDBClientError as e:
             self.client, self.valid = None, False
             if not silent:
-                print "Could not connect to database: ", e.message
+                print "  {0} Could not connect to database: {1}".format(Symbol.WARN_YELLOW, e.message)
         except Exception as e:
             print "Error: ", e.message
             self.client, self.valid = None, False
@@ -93,7 +93,7 @@ class InfluxdbClient:
         return res
 
     def prompt_setup(self):
-        print "{0}Please enter InfluxDB connection information{1}".format(Color.BOLD, Color.CLEAR)
+        print "\n{0}InfluxDB: Please enter your connection information{1}".format(Color.BOLD, Color.CLEAR)
         while not self.client:
             hostname = raw_input("  - host/handle [{0}]: ".format(self.host)) or self.host
 

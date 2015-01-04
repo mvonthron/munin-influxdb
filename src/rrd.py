@@ -3,11 +3,8 @@ import errno
 import subprocess
 import math
 from collections import defaultdict
-from pprint import pformat
 import xml.etree.ElementTree as ET
 from settings import Settings
-
-from datetime import datetime
 from utils import progress_bar, Symbol
 
 
@@ -22,45 +19,6 @@ DATA_TYPES = {
     'g': 'GAUGE',
 }
 
-
-def read_rrd_file(filename):
-    import rrdtool
-
-    infos = rrdtool.info(filename)
-    data = rrdtool.fetch(filename, 'MAX')
-
-    lastupdate = datetime.fromtimestamp(int(infos['last_update']))
-    step = int(infos["step"])
-    print lastupdate
-    print infos
-    key0 = elements[0][0:elements[0].index('[')]
-    key1 = elements[1][0:elements[1].index('[')]
-
-    print key0, key1
-
-    if key0 == "rra":
-        rras[idx0][key1][idx1] = value
-
-        if len(elements) > 2:
-            print "That's new"
-        else:
-            item[line] = value
-
-        if line.startswith("rra"):
-            match = re.findall(r'\d+', line)
-            if len(match) > 0:
-                rra_index.add(match[0])
-        if line.startswith("ds"):
-            match = re.findall(r'\d+', line)
-            if len(match) > 0:
-                ds_index.add(match[0])
-
-        print item
-
-    print rras
-    print rra_index, ds_index
-    # for i in range(rra_index):
-    #     rra = defaultdict(dict)
 
 def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
     values = defaultdict(dict)
@@ -103,17 +61,11 @@ def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
             except:
                 value = None
 
-            # if entry_date in values and values[entry_date] != value:
-            #     #
-            #     print " * {0} already has value {1}, new is {2} (probably averaged thus less precise)".format(datetime.fromtimestamp(entry_date),
-            #                                                                                                   values[entry_date],
-            #                                                                                                   value)
-
             entry_date += entry_delta
 
     return values
 
-def export_to_xml_new(settings, source, destination=MUNIN_XML_FOLDER):
+def export_to_xml(settings, source, destination=MUNIN_XML_FOLDER):
     i = 0
     assert os.path.exists(source)
     try:
@@ -122,7 +74,6 @@ def export_to_xml_new(settings, source, destination=MUNIN_XML_FOLDER):
         if e.errno != errno.EEXIST:
             raise
 
-    print "Exporting RRD databases:".format(settings.nb_rrd_files)
     for domain, host, plugin, field in settings.iter_fieds():
         _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]
 
@@ -136,15 +87,12 @@ def export_to_xml_new(settings, source, destination=MUNIN_XML_FOLDER):
             if code == 0:
                 _field.rrd_exported = True
 
+    return i
 
-def export_to_xml(source, destination=MUNIN_XML_FOLDER, structure=None):
+def export_to_xml_in_folder(source, destination=MUNIN_XML_FOLDER):
     """
     Calls "rrdtool dump" to convert RRD database files in "source" folder to XML representation
-    Converts all *.rrd files in source folder unless config is provided
-
-    @param source:
-    @param destination:
-    @param structure:
+    Converts all *.rrd files in source folder
     """
     assert os.path.exists(source)
     try:
@@ -153,17 +101,7 @@ def export_to_xml(source, destination=MUNIN_XML_FOLDER, structure=None):
         if e.errno != errno.EEXIST:
             raise
 
-    if structure is None:
-        filelist = [("", os.path.join(source, file)) for file in os.listdir(source) if file.endswith(".rrd")]
-    else:
-
-        filelist = [(domain, attributes['filename'])
-                    for domain, hosts in structure.items()
-                        for host, plugins in hosts.items()
-                            for plugin, fields in plugins.items()
-                                for field, attributes in fields['fields'].items()
-                                    if fields['rrd_found']
-        ]
+    filelist = [("", os.path.join(source, file)) for file in os.listdir(source) if file.endswith(".rrd")]
 
     nb_files = len(filelist)
     print "Exporting {0} RRD databases:".format(nb_files)
@@ -177,7 +115,6 @@ def export_to_xml(source, destination=MUNIN_XML_FOLDER, structure=None):
 
         code = subprocess.check_call(['rrdtool', 'dump', src, dst])
 
-    print ""
     return nb_files
 
 

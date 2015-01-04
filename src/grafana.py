@@ -205,12 +205,12 @@ class Dashboard:
         self.settings = settings
         setup = self.settings.grafana
 
-        setup.filename = raw_input("  Dashboard file destination [/tmp/munin-grafana.json]:").strip() or "/tmp/munin-grafana.json"
+        setup.filename = raw_input("  Dashboard file destination [/tmp/munin-grafana.json]: ").strip() or "/tmp/munin-grafana.json"
 
-        graph_per_row = raw_input("  Number of graphs per row [2]:").strip() or "2"
+        graph_per_row = raw_input("  Number of graphs per row [2]: ").strip() or "2"
         setup.graph_per_row = int(graph_per_row)
 
-        show_minmax = raw_input("  Show min/max/current in legend [y]/n:").strip() or "y"
+        show_minmax = raw_input("  Show min/max/current in legend [y]/n: ").strip() or "y"
         setup.show_minmax = show_minmax in ("y", "Y")
 
     def add_header(self, settings):

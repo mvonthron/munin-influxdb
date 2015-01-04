@@ -1,10 +1,8 @@
 import os
 import sys
-from collections import defaultdict
-from pprint import pprint
-
+import pprint
 from utils import progress_bar
-from settings import *
+from settings import Settings
 
 MUNIN_WWW_FOLDER = "/var/cache/munin/www"
 MUNIN_DATAFILE = "/var/lib/munin/datafile"
@@ -18,7 +16,6 @@ def discover_from_datafile(filename, settings=Settings()):
     @param filename: usually /var/lib/munin/datafile
     @return: settings
     """
-    raise Exception()
 
     with open(filename) as f:
         for line in f.readlines():
@@ -124,6 +121,7 @@ def discover_from_www(folder, settings=Settings()):
     return settings
 
 if __name__ == "__main__":
+    # main() for dev/debug only
     settings = discover_from_datafile("../data/datafile")
     # acadis.org;tesla:if_eth0.up.info
     pprint.pprint( dict(settings.domains["acadis.org"].hosts["house"].plugins["youtube_views_scilabus"].settings) )
