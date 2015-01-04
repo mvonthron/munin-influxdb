@@ -4,6 +4,7 @@ import json
 from collections import defaultdict
 
 import influxdb
+import rrd
 from utils import progress_bar, parse_handle, Color, Symbol
 from rrd import read_xml_file
 
@@ -122,6 +123,12 @@ class InfluxdbClient:
         group = raw_input("Group multiple fields of the same plugin in the same time series? [y]/n: ") or "y"
         self.group_fields = group in ("y", "Y")
 
+        # update settings
+        self.settings.influxdb.database = self.db_name
+        self.settings.influxdb.user = self.user
+        self.settings.influxdb.passwd = self.passwd
+        self.settings.influxdb.host = self.host
+        self.settings.influxdb.port = self.port
 
     def upload_values(self, name, columns, points):
         if len(columns) != len(points[0]):
@@ -173,12 +180,13 @@ class InfluxdbClient:
         errors = []
 
         for file in file_list:
+            fullname = os.path.join(folder, file)
             parts = file.replace(".xml", "").split("-")
             series_name = ".".join(parts[0:-2])
             if self.group_fields:
-                grouped_files[series_name].append((parts[-2], file))
+                grouped_files[series_name].append((parts[-2], fullname))
             else:
-                grouped_files[".".join([series_name, parts[-2]])].append(('value', file))
+                grouped_files[".".join([series_name, parts[-2]])].append(('value', fullname))
 
         show = raw_input("Would you like to see the prospective series and columns? y/[n]: ") or "n"
         if show in ("y", "Y"):
@@ -197,7 +205,7 @@ class InfluxdbClient:
 
                 keys_name.append(field)
                 #@todo make read_xml_file yieldable
-                content = read_xml_file(os.path.join(folder, file))
+                content = read_xml_file(file)
                 [values[key].append(value) for key, value in content.items()]
 
             # join data with time as first column
@@ -218,6 +226,15 @@ class InfluxdbClient:
             print "The following errors were detected while importing:"
             for error in errors:
                 print "  {0} {1}".format(Symbol.NOK_RED, error)
+
+        # prepare reverse table for collect
+        # {series: [ (field, file), ]} => {file: (series, column),}
+        self.settings.rrd_to_series = {field[1]: (series, field[0]) for series, fields in grouped_files.items() for field in fields}
+
+    def get_settings(self):
+        # the getter is useless in theory but making it explicit enforces the idea that we made modifications
+        return self.settings
+
 
 if __name__ == "__main__":
     # main used for dev/debug purpose only, use "import"

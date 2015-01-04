@@ -10,6 +10,7 @@ from utils import progress_bar, Symbol
 
 MUNIN_RRD_FOLDER = "/var/lib/munin/"
 MUNIN_XML_FOLDER = "/tmp/xml"
+DEFAULT_RRD_INDEX = 42
 
 # RRD types
 DATA_TYPES = {

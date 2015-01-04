@@ -67,6 +67,9 @@ def main():
     else:
         print "Then we're good! Have a nice day!"
 
+    settings = exporter.get_settings()
+    settings.save_collect_config("/tmp/munin-collect-config.json")
+
 if __name__ == "__main__":
     import traceback, sys
     try:

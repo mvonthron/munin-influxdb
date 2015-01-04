@@ -1,10 +1,14 @@
 import os
 import sys
 import pprint
-from utils import progress_bar
+
+from utils import progress_bar, Symbol
 from settings import Settings
 
+from vendor import storable
+
 MUNIN_WWW_FOLDER = "/var/cache/munin/www"
+MUNIN_VAR_FOLDER = "/var/lib/munin"
 MUNIN_DATAFILE = "/var/lib/munin/datafile"
 
 
@@ -119,6 +123,15 @@ def discover_from_www(folder, settings=Settings()):
             settings.nb_plugins += 1
 
     return settings
+
+def read_state_file(filename):
+    assert filename.startswith("state") and filename.endswith("storable")
+
+    try:
+        data = storable.retrieve(filename)
+    except Exception as e:
+        print "{0} Error: could read state file {1}: {2}".format(Symbol.NOK_RED, filename, e.message)
+
 
 if __name__ == "__main__":
     # main() for dev/debug only

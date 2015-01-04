@@ -1,5 +1,6 @@
 from collections import defaultdict
 import pprint
+import json
 
 class Field:
 
@@ -61,6 +62,11 @@ class Settings:
     nb_fields = 0
     nb_rrd_files = 0
 
+
+    # reversed table to ease collect's job
+    # reversed => [domain/host-plugin-field-t.rrd:42] = (series: domain.host.plugin, column: field)
+    rrd_to_series = []
+
     class grafana:
         filename = "/tmp/munin-grafana.json"
         graph_per_row = 2
@@ -71,6 +77,12 @@ class Settings:
         user, passwd = "root", None
         database = "munin"
 
+    def save_collect_config(self, filename):
+        config = {
+
+        }
+        with open(filename, "w") as f:
+            json.dump(f, indent = 2, separators=(',', ': '))
 
     def iter_fieds(self):
         """
