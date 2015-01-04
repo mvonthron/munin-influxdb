@@ -1,0 +1,3 @@
+[submodule "storable"]
+	path = src/storable
+	url = https://github.com/CowboyTim/python-storable.git
