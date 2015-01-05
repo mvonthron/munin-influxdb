@@ -54,7 +54,14 @@ class Domain:
         return pprint.pformat(dict(self.hosts))
 
 class Settings:
-    #old structure
+    MUNIN_RRD_FOLDER = "/var/lib/munin/"
+    MUNIN_XML_FOLDER = "/tmp/xml"
+    DEFAULT_RRD_INDEX = 42
+
+    MUNIN_WWW_FOLDER = "/var/cache/munin/www"
+    MUNIN_VAR_FOLDER = "/var/lib/munin"
+    MUNIN_DATAFILE = "/var/lib/munin/datafile"
+
     def __init__(self):
         self.domains = defaultdict(Domain)
 
@@ -90,8 +97,8 @@ class Settings:
             },
             "statefiles": ["state-{0}-{1}.storable".format(domain, host) for domain in self.domains for host in self.domains[domain].hosts],
             "series": {get_field(self, f, h, p, field).rrd_filename: (get_field(self, f, h, p, field).influxdb_series, get_field(self, f, h, p, field).influxdb_column)
-                        for f, h, p, field in self.iter_fields()
-                            if get_field(self, f, h, p, field).xml_imported
+                       for f, h, p, field in self.iter_fields()
+                       # if get_field(self, f, h, p, field).xml_imported
             },
             "lastupdate": None
         }

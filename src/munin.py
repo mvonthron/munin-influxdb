@@ -51,8 +51,8 @@ def discover_from_datafile(filename, settings=Settings()):
         settings.nb_fields += 1
 
         type_suffix = _field.settings["type"].lower()[0]
-        _field.rrd_filename = "{0}/{1}-{2}-{3}-{4}.rrd".format(domain, host, plugin.replace(".", "-"), field, type_suffix)
-        _field.xml_filename = "{0}-{1}-{2}-{3}-{4}.xml".format(domain, host, plugin.replace(".", "-"), field, type_suffix)
+        _field.rrd_filename = os.path.join(settings.MUNIN_RRD_FOLDER, domain, "{0}-{1}-{2}-{3}.rrd".format(host, plugin.replace(".", "-"), field, type_suffix))
+        _field.xml_filename = os.path.join(settings.MUNIN_XML_FOLDER, "{0}-{1}-{2}-{3}-{4}.xml".format(domain, host, plugin.replace(".", "-"), field, type_suffix))
 
         # remove multigraph intermediates
         if '.' in plugin:

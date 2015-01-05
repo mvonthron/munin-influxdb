@@ -66,6 +66,7 @@ def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
 
     return values
 
+
 def export_to_xml(settings, source, destination=MUNIN_XML_FOLDER):
     i = 0
     assert os.path.exists(source)
@@ -80,15 +81,11 @@ def export_to_xml(settings, source, destination=MUNIN_XML_FOLDER):
 
         if _field.rrd_found:
             i += 1
-            src = os.path.join(source, _field.rrd_filename)
-            dst = os.path.join(destination, _field.xml_filename)
             progress_bar(i, settings.nb_rrd_files)
 
-            code = subprocess.check_call(['rrdtool', 'dump', src, dst])
+            code = subprocess.check_call(['rrdtool', 'dump', _field.rrd_filename, _field.xml_filename])
             if code == 0:
                 _field.rrd_exported = True
-                if not dst == _field.xml_filename:
-                  _field.xml_filename = dst
 
     return i
 
@@ -182,8 +179,8 @@ def discover_from_rrd(folder, settings=Settings(), insert_missing=True, print_mi
                 plugin_data.fields[field].rrd_found = False
             else:
                 plugin_data.fields[field].rrd_found = True
-                plugin_data.fields[field].rrd_filename = "{0}/{1}".format(domain, filename)
-                plugin_data.fields[field].xml_filename = "{0}-{1}".format(domain, filename.replace(".rrd", ".xml"))
+                plugin_data.fields[field].rrd_filename = os.path.join(settings.MUNIN_RRD_FOLDER, domain, filename)
+                plugin_data.fields[field].xml_filename = os.path.join(settings.MUNIN_RRD_FOLDER, domain, filename.replace(".rrd", ".xml"))
                 plugin_data.fields[field].settings = {
                     "type": DATA_TYPES[datatype]
                 }
@@ -204,7 +201,7 @@ def check_rrd_files(settings, folder=MUNIN_RRD_FOLDER):
     for domain, host, plugin, field in settings.iter_fields():
         _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]
         # print "{0}[{1}]: {2}".format(plugin, field, _field.rrd_filename)
-        exists = os.path.exists(os.path.join(folder, _field.rrd_filename))
+        exists = os.path.exists(_field.rrd_filename)
 
         if not exists:
             _field.rrd_found = False
