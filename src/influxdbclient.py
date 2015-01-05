@@ -156,7 +156,7 @@ class InfluxdbClient:
         As InfluxDB doesn't store null values we cannot compare length for now
         """
 
-        if not name in self.client.get_list_series():
+        if name not in self.client.get_list_series():
             raise Exception("Series \"{0}\" doesn't exist")
 
         for column in columns:
@@ -172,6 +172,67 @@ class InfluxdbClient:
                     raise Exception("Column \"{0}\" doesn't exist. (May happen if original data contains only NaN entries)".format(column))
 
         return True
+
+    def import_from_xml(self):
+        progress_len = self.settings.nb_rrd_files*3  # nb_files * (read + upload + validate)
+        errors = []
+        i = 0
+
+        # non grouping
+        # for domain, host, plugin, field in self.settings.iter_fields():
+        #     _field = self.settings.domains[domain].hosts[host].plugins[plugin].fields[field]
+        #     if not _field.rrd_exported:
+        #         continue
+
+        for domain, host, plugin in self.settings.iter_plugins():
+            _plugin = self.settings.domains[domain].hosts[host].plugins[plugin]
+            series_name = ".".join([domain, host, plugin])
+
+            column_names = ['time']
+            values = defaultdict(list)
+            packed_values = []
+
+            for field in _plugin.fields:
+                _field = _plugin.fields[field]
+
+                if _field.rrd_exported:
+                    column_names.append(field)
+                    content = read_xml_file(_field.xml_filename)
+                    [values[key].append(value) for key, value in content.items()]
+
+                    # keep track of influxdb storage info to allow 'collect'
+                    _field.influxdb_series = series_name
+                    _field.influxdb_column = field
+
+                # update progress bar [######      ] 42 %
+                i += 1
+                progress_bar(i, progress_len)
+
+            # join data with time as first column
+            packed_values.extend([[k]+v for k, v in values.items()])
+
+            try:
+                self.upload_values(series_name, column_names, packed_values)
+            except Exception as e:
+                errors.append(e.message)
+                continue
+            finally:
+                i += len(column_names)-1   # 'time' column ignored
+                progress_bar(i, progress_len)
+
+            try:
+                self.validate_record(series_name, column_names)
+            except Exception as e:
+                errors.append("Validation error in {0}: {1}".format(series_name, e.message))
+            finally:
+                i += len(column_names)-1   # 'time' column ignored
+                progress_bar(i, progress_len)
+
+        if errors:
+            print "The following errors were detected while importing:"
+            for error in errors:
+                print "  {0} {1}".format(Symbol.NOK_RED, error)
+
 
     def import_from_xml_folder(self, folder):
         # build file list and grouping if necessary
@@ -205,14 +266,15 @@ class InfluxdbClient:
 
                 keys_name.append(field)
                 #@todo make read_xml_file yieldable
-                content = read_xml_file(file)
-                [values[key].append(value) for key, value in content.items()]
+                # content = read_xml_file(file)
+                # [values[key].append(value) for key, value in content.items()]
 
             # join data with time as first column
             data.extend([[k]+v for k, v in values.items()])
 
             try:
-                self.upload_values(series_name, keys_name, data)
+                pass
+                # self.upload_values(series_name, keys_name, data)
             except Exception as e:
                 errors.append(e.message)
                 continue

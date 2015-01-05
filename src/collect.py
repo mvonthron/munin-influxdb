@@ -2,14 +2,10 @@
 import os
 import sys
 
-from vendor import storable
-
 try:
-    import watchdog
+    import storable
 except ImportError:
-    print "Please install python-watchdog to use this program in notify mode"
-    print "  pip install watchdog"
-    sys.exit(1)
+    from vendor import storable
 
 def read_state_file(filename):
     data = storable.retrieve(filename)

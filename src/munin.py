@@ -46,7 +46,7 @@ def discover_from_datafile(filename, settings=Settings()):
                 _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field].settings[property] = value
 
     # post parsing
-    for domain, host, plugin, field in settings.iter_fieds():
+    for domain, host, plugin, field in settings.iter_fields():
         _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]
         settings.nb_fields += 1
 

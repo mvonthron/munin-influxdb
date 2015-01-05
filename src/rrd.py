@@ -75,7 +75,7 @@ def export_to_xml(settings, source, destination=MUNIN_XML_FOLDER):
         if e.errno != errno.EEXIST:
             raise
 
-    for domain, host, plugin, field in settings.iter_fieds():
+    for domain, host, plugin, field in settings.iter_fields():
         _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]
 
         if _field.rrd_found:
@@ -199,7 +199,7 @@ def discover_from_rrd(folder, settings=Settings(), insert_missing=True, print_mi
 
 def check_rrd_files(settings, folder=MUNIN_RRD_FOLDER):
     missing = []
-    for domain, host, plugin, field in settings.iter_fieds():
+    for domain, host, plugin, field in settings.iter_fields():
         _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]
         # print "{0}[{1}]: {2}".format(plugin, field, _field.rrd_filename)
         exists = os.path.exists(os.path.join(folder, _field.rrd_filename))

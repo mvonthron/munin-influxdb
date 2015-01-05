@@ -22,7 +22,7 @@ def retrieve_munin_configuration():
     else:
         print "  {0} Found {1}: extracted {2} measurement units".format(Symbol.OK_GREEN, munin.MUNIN_DATAFILE, settings.nb_fields)
 
-    #for each host, find the /var/lib/munin/<host> directory and check if node name and plugin conf match RRD files
+    # for each host, find the /var/lib/munin/<host> directory and check if node name and plugin conf match RRD files
     try:
         rrd.check_rrd_files(settings)
     except Exception as e:
@@ -47,8 +47,13 @@ def main():
     exporter = InfluxdbClient(settings)
     exporter.prompt_setup()
 
-    exporter.import_from_xml_folder(rrd.MUNIN_XML_FOLDER)
-    print "{0} Munin data successfully imported to {1}/db/{2}".format(Symbol.OK_GREEN, exporter.host, exporter.db_name)
+    exporter.import_from_xml()
+
+    settings = exporter.get_settings()
+    print "{0} Munin data successfully imported to {1}/db/{2}".format(Symbol.OK_GREEN, settings.influxdb.host, settings.influxdb.database)
+
+    settings.save_collect_config("/tmp/munin-collect-config.json")
+    print "{0} Configuration for 'munin-influxdb collect' exported to {1}".format(Symbol.OK_GREEN, "/tmp/munin-collect-config.json")
 
     # Generate a JSON file to be uploaded to Grafana
     print "\n{0}Grafaba dashboard{1}".format(Color.BOLD, Color.CLEAR)
@@ -66,9 +71,6 @@ def main():
             print "{0} A Grafana dashboard has been successfully generated to {1}".format(Symbol.OK_GREEN, settings.grafana.filename)
     else:
         print "Then we're good! Have a nice day!"
-
-    settings = exporter.get_settings()
-    settings.save_collect_config("/tmp/munin-collect-config.json")
 
 if __name__ == "__main__":
     import traceback, sys

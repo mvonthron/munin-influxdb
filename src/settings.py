@@ -2,6 +2,8 @@ from collections import defaultdict
 import pprint
 import json
 
+get_field = lambda s, d, h, p, f: s.domains[d].hosts[h].plugins[p].fields[f]
+
 class Field:
 
     def __init__(self):
@@ -79,12 +81,35 @@ class Settings:
 
     def save_collect_config(self, filename):
         config = {
-
+            "connection": {
+                "host": self.influxdb.host,
+                "port": self.influxdb.port,
+                "user": self.influxdb.user,
+                "passwd": self.influxdb.passwd,
+                "database": self.influxdb.database,
+            },
+            "statefiles": ["state-{0}-{1}.storable".format(domain, host) for domain in self.domains for host in self.domains[domain].hosts],
+            "series": {get_field(self, f, h, p, field).rrd_filename: (get_field(self, f, h, p, field).influxdb_series, get_field(self, f, h, p, field).influxdb_column)
+                        for f, h, p, field in self.iter_fields()
+                            if get_field(self, f, h, p, field).xml_imported
+            },
+            "lastupdate": None
         }
-        with open(filename, "w") as f:
-            json.dump(f, indent = 2, separators=(',', ': '))
 
-    def iter_fieds(self):
+        with open(filename, "w") as f:
+            json.dump(config, f, indent=2, separators=(',', ': '))
+
+    def iter_plugins(self):
+        """
+
+        """
+        for domain in self.domains:
+            for host in self.domains[domain].hosts:
+                for plugin in self.domains[domain].hosts[host].plugins:
+                    yield domain, host, plugin
+
+
+    def iter_fields(self):
         """
 
         """
