@@ -87,6 +87,8 @@ def export_to_xml(settings, source, destination=MUNIN_XML_FOLDER):
             code = subprocess.check_call(['rrdtool', 'dump', src, dst])
             if code == 0:
                 _field.rrd_exported = True
+                if not dst == _field.xml_filename:
+                  _field.xml_filename = dst
 
     return i
 
