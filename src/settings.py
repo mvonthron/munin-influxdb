@@ -98,7 +98,7 @@ class Settings:
                            for host in self.domains[domain].hosts
             ],
             # {rrd_filename: (series, column), ...}
-            "series": {get_field(self, f, h, p, field).rrd_filename:
+            "metrics": {get_field(self, f, h, p, field).rrd_filename:
                                 (get_field(self, f, h, p, field).influxdb_series,
                                  get_field(self, f, h, p, field).influxdb_column)
                        for f, h, p, field in self.iter_fields()

@@ -40,6 +40,8 @@ class InfluxdbClient:
         if self.settings.influxdb['database']:
             self.client.switch_db(self.settings.influxdb['database'])
 
+        return self.valid
+
     def test_db(self, name):
         assert self.client
         if not name:
@@ -129,7 +131,22 @@ class InfluxdbClient:
         group = raw_input("Group multiple fields of the same plugin in the same time series? [y]/n: ") or "y"
         setup['group_fields'] = group in ("y", "Y")
 
-    def upload_values(self, name, columns, points):
+    def upload_multiple_series(self, dict_values):
+        body = [{"name": series,
+                 "columns": data.keys(),
+                 "points": zip(*data.values())
+                }
+                for series, data in dict_values.items()
+        ]
+
+        try:
+            self.client.write_points(body)
+        except influxdb.client.InfluxDBClientError as e:
+            raise Exception("Cannot insert in {0} series: {1}".format(dict_values.keys(), e.message))
+
+
+
+    def upload_single_series(self, name, columns, points):
         if len(columns) != len(points[0]):
             raise Exception("Cannot insert in {0} series: expected {1} columns (contains {2})".format(name, len(columns), len(points)))
 
@@ -179,7 +196,7 @@ class InfluxdbClient:
 
         def _upload_and_validate(series_name, column_names, packed_values):
             try:
-                self.upload_values(series_name, column_names, packed_values)
+                self.upload_single_series(series_name, column_names, packed_values)
             except Exception as e:
                 print e
                 errors.append((Symbol.NOK_RED, e.message))
@@ -246,7 +263,7 @@ class InfluxdbClient:
 
         else:  # non grouping
             """
-            In "group_fields" mode, all fields of a same plugin will have a dedicated time series and the values
+            In "non grouped" mode, all fields of a same plugin will have a dedicated time series and the values
              will be written to a 'value' column
 
              Schema will be:
