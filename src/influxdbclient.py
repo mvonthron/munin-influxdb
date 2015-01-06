@@ -5,19 +5,18 @@ from collections import defaultdict
 
 import influxdb
 import rrd
-from utils import progress_bar, parse_handle, Color, Symbol
+from utils import ProgressBar, parse_handle, Color, Symbol
 from rrd import read_xml_file
 from settings import Settings
 
 
 class InfluxdbClient:
     def __init__(self, settings=Settings(), hostname="root@localhost:8086"):
-        self.group_fields = True
         self.client = None
         self.valid = False
 
         self.settings = settings
-        self.settings.influxdb = parse_handle(hostname)
+        self.settings.influxdb.update(parse_handle(hostname))
 
     def connect(self, silent=False):
         try:
@@ -105,7 +104,7 @@ class InfluxdbClient:
             hostname = raw_input("  - host/handle [{0}]: ".format(setup['host'])) or setup['host']
 
             # I miss pointers and explicit references :(
-            setup = self.settings.influxdb = parse_handle(hostname)
+            setup.update(parse_handle(hostname))
             if setup['port'] is None:
                 setup['port'] = 8086
 
@@ -128,7 +127,7 @@ class InfluxdbClient:
             setup['database'] = raw_input("  - database [munin]: ") or "munin"
 
         group = raw_input("Group multiple fields of the same plugin in the same time series? [y]/n: ") or "y"
-        self.group_fields = group in ("y", "Y")
+        setup['group_fields'] = group in ("y", "Y")
 
     def upload_values(self, name, columns, points):
         if len(columns) != len(points[0]):
@@ -175,9 +174,25 @@ class InfluxdbClient:
 
     def import_from_xml(self):
         print "\nUploading data to InfluxDB:"
-        progress_len = self.settings.nb_rrd_files*3  # nb_files * (read + upload + validate)
+        progress_bar = ProgressBar(self.settings.nb_rrd_files*3)  # nb_files * (read + upload + validate)
         errors = []
-        i = 0
+
+        def _upload_and_validate(series_name, column_names, packed_values):
+            try:
+                self.upload_values(series_name, column_names, packed_values)
+            except Exception as e:
+                print e
+                errors.append((Symbol.NOK_RED, e.message))
+                return
+            finally:
+                progress_bar.update(len(column_names)-1)  # 'time' column ignored
+
+            try:
+                self.validate_record(series_name, column_names)
+            except Exception as e:
+                errors.append((Symbol.WARN_YELLOW, "Validation error in {0}: {1}".format(series_name, e.message)))
+            finally:
+                progress_bar.update(len(column_names)-1)  # 'time' column ignored
 
         try:
             assert self.client and self.valid
@@ -186,57 +201,85 @@ class InfluxdbClient:
         else:
             print "  {0} Connection to database \"{1}\" OK".format(Symbol.OK_GREEN, self.settings.influxdb['database'])
 
+        if self.settings.influxdb['group_fields']:
+            """
+            In "group_fields" mode, all fields of a same plugin (ex: system, user, nice, idle... of CPU usage)
+             will be represented as columns of the same time series in InfluxDB.
 
-        # non grouping
-        # for domain, host, plugin, field in self.settings.iter_fields():
-        #     _field = self.settings.domains[domain].hosts[host].plugins[plugin].fields[field]
-        #     if not _field.rrd_exported:
-        #         continue
+             Schema will be:
+                +----------------------+-------+----------+----------+-----------+
+                |   time_series_name   | col_0 |  col_1   |  col_2   | col_3 ... |
+                +----------------------+-------+----------+----------+-----------+
+                | domain.host.plugin   | time  | metric_1 | metric_2 | metric_3  |
+                | acadis.org.tesla.cpu | time  | system   | user     | nice      |
+                | ...                  |       |          |          |           |
+                +----------------------+-------+----------+----------+-----------+
+            """
+            for domain, host, plugin in self.settings.iter_plugins():
+                _plugin = self.settings.domains[domain].hosts[host].plugins[plugin]
+                series_name = ".".join([domain, host, plugin])
 
-        for domain, host, plugin in self.settings.iter_plugins():
-            _plugin = self.settings.domains[domain].hosts[host].plugins[plugin]
-            series_name = ".".join([domain, host, plugin])
+                column_names = ['time']
+                values = defaultdict(list)
+                packed_values = []
 
-            column_names = ['time']
-            values = defaultdict(list)
-            packed_values = []
+                for field in _plugin.fields:
+                    _field = _plugin.fields[field]
 
-            for field in _plugin.fields:
-                _field = _plugin.fields[field]
+                    if _field.rrd_exported:
+                        column_names.append(field)
+                        content = read_xml_file(_field.xml_filename)
+                        [values[key].append(value) for key, value in content.items()]
 
-                if _field.rrd_exported:
-                    column_names.append(field)
-                    content = read_xml_file(_field.xml_filename)
-                    [values[key].append(value) for key, value in content.items()]
+                        # keep track of influxdb storage info to allow 'collect'
+                        _field.influxdb_series = series_name
+                        _field.influxdb_column = field
+                        _field.xml_imported = True
 
-                    # keep track of influxdb storage info to allow 'collect'
-                    _field.influxdb_series = series_name
-                    _field.influxdb_column = field
-                    _field.xml_imported = True
+                    # update progress bar [######      ] 42 %
+                    progress_bar.update()
 
-                # update progress bar [######      ] 42 %
-                i += 1
-                progress_bar(i, progress_len)
+                # join data with time as first column
+                packed_values.extend([[k]+v for k, v in values.items()])
 
-            # join data with time as first column
-            packed_values.extend([[k]+v for k, v in values.items()])
+                _upload_and_validate(series_name, column_names, packed_values)
 
-            try:
-                self.upload_values(series_name, column_names, packed_values)
-            except Exception as e:
-                errors.append((Symbol.NOK_RED, e.message))
-                continue
-            finally:
-                i += len(column_names)-1   # 'time' column ignored
-                progress_bar(i, progress_len)
+        else:  # non grouping
+            """
+            In "group_fields" mode, all fields of a same plugin will have a dedicated time series and the values
+             will be written to a 'value' column
 
-            try:
-                self.validate_record(series_name, column_names)
-            except Exception as e:
-                errors.append((Symbol.WARN_YELLOW, "Validation error in {0}: {1}".format(series_name, e.message)))
-            finally:
-                i += len(column_names)-1   # 'time' column ignored
-                progress_bar(i, progress_len)
+             Schema will be:
+                +-----------------------------+-------+-------+
+                |      time_series_name       | col_0 | col_1 |
+                +-----------------------------+-------+-------+
+                | domain.host.plugin.metric_1 | time  | value |
+                | domain.host.plugin.metric_2 | time  | value |
+                | acadis.org.tesla.cpu.system | time  | value |
+                | ...                         |       |       |
+                +-----------------------------+-------+-------+
+            """
+            for domain, host, plugin, field in self.settings.iter_fields():
+                _field = self.settings.domains[domain].hosts[host].plugins[plugin].fields[field]
+                if not _field.rrd_exported:
+                    continue
+                series_name = ".".join([domain, host, plugin, field])
+
+                column_names = ['time', 'value']
+                values = defaultdict(list)
+                packed_values = []
+
+                _field.influxdb_series = series_name
+                _field.influxdb_column = 'value'
+
+                content = read_xml_file(_field.xml_filename)
+                [values[key].append(value) for key, value in content.items()]
+                _field.xml_imported = True
+                progress_bar.update()
+
+                # join data with time as first column
+                packed_values.extend([[k]+v for k, v in values.items()])
+                _upload_and_validate(series_name, column_names, packed_values)
 
         for error in errors:
             print "  {0} {1}".format(error[0], error[1])
@@ -247,12 +290,13 @@ class InfluxdbClient:
         file_list = os.listdir(folder)
         grouped_files = defaultdict(list)
         errors = []
+        progress_bar = ProgressBar(len(file_list))
 
         for file in file_list:
             fullname = os.path.join(folder, file)
             parts = file.replace(".xml", "").split("-")
             series_name = ".".join(parts[0:-2])
-            if self.group_fields:
+            if self.settings.influxdb['group_fields']:
                 grouped_files[series_name].append((parts[-2], fullname))
             else:
                 grouped_files[".".join([series_name, parts[-2]])].append(('value', fullname))
@@ -263,19 +307,17 @@ class InfluxdbClient:
                 print "  - {2}{0}{3}: {1}".format(series_name, [name for name, _ in grouped_files[series_name]], Color.GREEN, Color.CLEAR)
 
         print "Importing {0} XML files".format(len(file_list))
-        i = 0
         for series_name in grouped_files:
             data = []
             keys_name = ['time']
             values = defaultdict(list)
             for field, file in grouped_files[series_name]:
-                i += 1
-                progress_bar(i, len(file_list))
+                progress_bar.update()
 
                 keys_name.append(field)
-                #@todo make read_xml_file yieldable
-                # content = read_xml_file(file)
-                # [values[key].append(value) for key, value in content.items()]
+
+                content = read_xml_file(file)
+                [values[key].append(value) for key, value in content.items()]
 
             # join data with time as first column
             data.extend([[k]+v for k, v in values.items()])

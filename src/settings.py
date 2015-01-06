@@ -75,13 +75,14 @@ class Settings:
             "port":  8086,
             "user":  "root",
             "password":  None,
-            "database": "munin"
+            "database": "munin",
+            "group_fields": True,
         }
 
         self.grafana = {
             "filename": "/tmp/munin-grafana.json",
             "graph_per_row": 2,
-            "show_minmax": True
+            "show_minmax": True,
         }
 
     class grafana:

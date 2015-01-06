@@ -57,6 +57,10 @@ def main():
 
     # Generate a JSON file to be uploaded to Grafana
     print "\n{0}Grafaba dashboard{1}".format(Color.BOLD, Color.CLEAR)
+    if not settings.influxdb['group_fields']:
+        print Symbol.NOK_RED, "Grafana dashboard generation is only supported in grouped fields mode."
+        return
+
     create_dash = raw_input("Would you like to generate a Grafana dashboard? [y]/n: ") or "y"
     if create_dash in ("y", "Y"):
         dashboard = Dashboard("Munin dashboard", settings)
