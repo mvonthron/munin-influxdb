@@ -1,5 +1,5 @@
 import json
-from utils import progress_bar
+from utils import ProgressBar
 from pprint import pprint
 from settings import Settings
 
@@ -284,7 +284,8 @@ necessary:
 
 
     def generate(self):
-        i = 0
+        progress_bar = ProgressBar(self.settings.nb_rrd_files)
+
         self.add_header(self.settings)
 
         for domain in self.settings.domains:
@@ -298,8 +299,7 @@ necessary:
                         query = panel.add_query(field)
                         if "label" in _plugin.fields[field].settings:
                             query.alias = _plugin.fields[field].settings["label"]
-                        i += 1
-                        progress_bar(i, self.settings.nb_rrd_files)
+                        progress_bar.update()
 
                     panel.width = 12//self.settings.grafana['graph_per_row']
                     panel.process_graph_settings(_plugin.settings)

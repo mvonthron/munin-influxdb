@@ -2,7 +2,7 @@ import os
 import sys
 import pprint
 
-from utils import progress_bar, Symbol
+from utils import ProgressBar, Symbol
 from settings import Settings
 
 from vendor import storable
@@ -94,10 +94,10 @@ def discover_from_www(folder, settings=Settings()):
             domain_root = BeautifulSoup(f.read())
 
         links = domain_root.find(id="content").findAll("a")
-        i=0
+        progress_bar = ProgressBar(len(links), title=domain.text)
+
         for link in links:
-            i += 1
-            progress_bar(i, len(links), title=domain.text)
+            progress_bar.update()
 
             elements = link.get("href").split("/")
             if len(elements) < 2 \

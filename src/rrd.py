@@ -5,7 +5,7 @@ import math
 from collections import defaultdict
 import xml.etree.ElementTree as ET
 from settings import Settings
-from utils import progress_bar, Symbol
+from utils import ProgressBar, Symbol
 
 
 MUNIN_RRD_FOLDER = "/var/lib/munin/"
@@ -68,7 +68,8 @@ def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
 
 
 def export_to_xml(settings, source, destination=MUNIN_XML_FOLDER):
-    i = 0
+    progress_bar = ProgressBar(settings.nb_rrd_files)
+
     assert os.path.exists(source)
     try:
         os.makedirs(destination)
@@ -80,14 +81,13 @@ def export_to_xml(settings, source, destination=MUNIN_XML_FOLDER):
         _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]
 
         if _field.rrd_found:
-            i += 1
-            progress_bar(i, settings.nb_rrd_files)
+            progress_bar.update()
 
             code = subprocess.check_call(['rrdtool', 'dump', _field.rrd_filename, _field.xml_filename])
             if code == 0:
                 _field.rrd_exported = True
 
-    return i
+    return progress_bar.current
 
 def export_to_xml_in_folder(source, destination=MUNIN_XML_FOLDER):
     """
@@ -102,16 +102,15 @@ def export_to_xml_in_folder(source, destination=MUNIN_XML_FOLDER):
             raise
 
     filelist = [("", os.path.join(source, file)) for file in os.listdir(source) if file.endswith(".rrd")]
-
     nb_files = len(filelist)
+    progress_bar = ProgressBar(nb_files)
+
     print "Exporting {0} RRD databases:".format(nb_files)
 
-    i = 0
     for domain, file in filelist:
-        i += 1
         src = os.path.join(source, domain, file)
         dst = os.path.join(destination, "{0}-{1}".format(domain, file).replace(".rrd", ".xml"))
-        progress_bar(i, nb_files)
+        progress_bar.update()
 
         code = subprocess.check_call(['rrdtool', 'dump', src, dst])
 
@@ -145,11 +144,10 @@ def discover_from_rrd(folder, settings=Settings(), insert_missing=True, print_mi
             #skip unknown domains (probably no longer wanted)
             continue
 
-        i = 0
         files = os.listdir(os.path.join(folder, domain))
+        progress_bar = ProgressBar(len(files), title=domain)
         for filename in files:
-            i += 1
-            progress_bar(i, len(files), title=domain)
+            progress_bar.update()
 
             path = os.path.join(folder, domain, filename)
             if os.path.isdir(path) or not path.endswith(".rrd"):
