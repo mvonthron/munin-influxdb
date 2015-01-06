@@ -20,17 +20,33 @@ class Symbol:
     NOK_RED = "{0}{1}{2}".format(Color.RED, NOK, Color.CLEAR)
     WARN_YELLOW = "{0}{1}{2}".format(Color.YELLOW, WARN, Color.CLEAR)
 
-def progress_bar(current, max, title="  Progress", length=50):
-    """
-    @see http://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console/13685020#13685020
-    """
-    percent = float(current) / max
-    hashes = '#' * int(round(percent * length))
-    spaces = ' ' * (length - len(hashes))
-    sys.stdout.write("\r{0}: [{3}{1}{4}] {2}%".format(title, hashes + spaces, int(round(percent * 100)), Color.GREEN, Color.CLEAR))
-    sys.stdout.flush()
-    if percent >= 1:
-        print ""
+
+class ProgressBar():
+    def __init__(self, max, title="  Progress", length=50):
+        self.current = 0
+        self.max = max
+        self.title = title
+        self.length = length
+
+    def advance(self, step=1):
+        self.current += step
+
+    def update(self, step=1):
+        self.advance(step)
+        self.show()
+
+    def show(self):
+        """
+        @see http://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console/13685020#13685020
+        """
+        percent = float(self.current) / self.max
+        hashes = '#' * int(round(percent * self.length))
+        spaces = ' ' * (self.length - len(hashes))
+        sys.stdout.write("\r{0}: [{3}{1}{4}] {2}%".format(self.title, hashes + spaces, int(round(percent * 100)), Color.GREEN, Color.CLEAR))
+        sys.stdout.flush()
+        if percent >= 1:
+            print ""
+
 
 def parse_handle(handle):
     """
