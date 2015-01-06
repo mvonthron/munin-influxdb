@@ -50,7 +50,7 @@ def main():
     exporter.import_from_xml()
 
     settings = exporter.get_settings()
-    print "{0} Munin data successfully imported to {1}/db/{2}".format(Symbol.OK_GREEN, settings.influxdb.host, settings.influxdb.database)
+    print "{0} Munin data successfully imported to {1}/db/{2}".format(Symbol.OK_GREEN, settings.influxdb['host'], settings.influxdb['database'])
 
     settings.save_collect_config("/tmp/munin-collect-config.json")
     print "{0} Configuration for 'munin-influxdb collect' exported to {1}".format(Symbol.OK_GREEN, "/tmp/munin-collect-config.json")
@@ -59,8 +59,8 @@ def main():
     print "\n{0}Grafaba dashboard{1}".format(Color.BOLD, Color.CLEAR)
     create_dash = raw_input("Would you like to generate a Grafana dashboard? [y]/n: ") or "y"
     if create_dash in ("y", "Y"):
-        dashboard = Dashboard("Munin dashboard")
-        dashboard.prompt_setup(settings)
+        dashboard = Dashboard("Munin dashboard", settings)
+        dashboard.prompt_setup()
         dashboard.generate()
 
         try:
@@ -68,7 +68,7 @@ def main():
         except Exception as e:
             print "{0} Could not write Grafana dashboard: {1}".format(Symbol.NOK_RED, e.message)
         else:
-            print "{0} A Grafana dashboard has been successfully generated to {1}".format(Symbol.OK_GREEN, settings.grafana.filename)
+            print "{0} A Grafana dashboard has been successfully generated to {1}".format(Symbol.OK_GREEN, settings.grafana['filename'])
     else:
         print "Then we're good! Have a nice day!"
 

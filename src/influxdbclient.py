@@ -7,20 +7,25 @@ import influxdb
 import rrd
 from utils import progress_bar, parse_handle, Color, Symbol
 from rrd import read_xml_file
+from settings import Settings
 
 
 class InfluxdbClient:
-    def __init__(self, settings, hostname="root@localhost:8086"):
-        self.user, self.passwd, self.host, self.port, self.db_name = parse_handle(hostname)
+    def __init__(self, settings=Settings(), hostname="root@localhost:8086"):
         self.group_fields = True
         self.client = None
         self.valid = False
 
         self.settings = settings
+        self.settings.influxdb = parse_handle(hostname)
 
     def connect(self, silent=False):
         try:
-            client = influxdb.InfluxDBClient(self.host, self.port, self.user, self.passwd)
+            client = influxdb.InfluxDBClient(self.settings.influxdb['host'],
+                                             self.settings.influxdb['port'],
+                                             self.settings.influxdb['user'],
+                                             self.settings.influxdb['password'])
+
             # dummy request to test connection
             client.get_database_list()
         except influxdb.client.InfluxDBClientError as e:
@@ -33,8 +38,8 @@ class InfluxdbClient:
         else:
             self.client, self.valid = client, True
 
-        if self.db_name:
-            self.client.switch_db(self.db_name)
+        if self.settings.influxdb['database']:
+            self.client.switch_db(self.settings.influxdb['database'])
 
     def test_db(self, name):
         assert self.client
@@ -94,41 +99,36 @@ class InfluxdbClient:
         return res
 
     def prompt_setup(self):
+        setup = self.settings.influxdb
         print "\n{0}InfluxDB: Please enter your connection information{1}".format(Color.BOLD, Color.CLEAR)
         while not self.client:
-            hostname = raw_input("  - host/handle [{0}]: ".format(self.host)) or self.host
+            hostname = raw_input("  - host/handle [{0}]: ".format(setup['host'])) or setup['host']
 
-            self.user, self.passwd, self.host, self.port, self.db_name = parse_handle(hostname)
-            if self.port is None:
-                self.port = 8086
+            # I miss pointers and explicit references :(
+            setup = self.settings.influxdb = parse_handle(hostname)
+            if setup['port'] is None:
+                setup['port'] = 8086
 
             # shortcut if everything is in the handle
             if self.connect(silent=True):
                 break
 
-            self.port = raw_input("  - port [{0}]: ".format(self.port)) or self.port
-            self.user = raw_input("  - user [{0}]: ".format(self.user)) or self.user
-            self.passwd = getpass.getpass("  - password: ")
+            setup['port'] = raw_input("  - port [{0}]: ".format(setup['port'])) or setup['port']
+            setup['user'] = raw_input("  - user [{0}]: ".format(setup['user'])) or setup['user']
+            setup['password'] = getpass.getpass("  - password: ")
 
             self.connect()
 
         while True:
-            if self.db_name == "?":
+            if setup['database'] == "?":
                 self.list_db()
             else:
-                if self.test_db(self.db_name):
+                if self.test_db(setup['database']):
                     break
-            self.db_name = raw_input("  - database [munin]: ") or "munin"
+            setup['database'] = raw_input("  - database [munin]: ") or "munin"
 
         group = raw_input("Group multiple fields of the same plugin in the same time series? [y]/n: ") or "y"
         self.group_fields = group in ("y", "Y")
-
-        # update settings
-        self.settings.influxdb.database = self.db_name
-        self.settings.influxdb.user = self.user
-        self.settings.influxdb.passwd = self.passwd
-        self.settings.influxdb.host = self.host
-        self.settings.influxdb.port = self.port
 
     def upload_values(self, name, columns, points):
         if len(columns) != len(points[0]):
@@ -174,9 +174,18 @@ class InfluxdbClient:
         return True
 
     def import_from_xml(self):
+        print "\nUploading data to InfluxDB:"
         progress_len = self.settings.nb_rrd_files*3  # nb_files * (read + upload + validate)
         errors = []
         i = 0
+
+        try:
+            assert self.client and self.valid
+        except:
+            raise Exception("Not connected to a InfluxDB server")
+        else:
+            print "  {0} Connection to database \"{1}\" OK".format(Symbol.OK_GREEN, self.settings.influxdb['database'])
+
 
         # non grouping
         # for domain, host, plugin, field in self.settings.iter_fields():
@@ -203,6 +212,7 @@ class InfluxdbClient:
                     # keep track of influxdb storage info to allow 'collect'
                     _field.influxdb_series = series_name
                     _field.influxdb_column = field
+                    _field.xml_imported = True
 
                 # update progress bar [######      ] 42 %
                 i += 1
@@ -214,7 +224,7 @@ class InfluxdbClient:
             try:
                 self.upload_values(series_name, column_names, packed_values)
             except Exception as e:
-                errors.append(e.message)
+                errors.append((Symbol.NOK_RED, e.message))
                 continue
             finally:
                 i += len(column_names)-1   # 'time' column ignored
@@ -223,15 +233,13 @@ class InfluxdbClient:
             try:
                 self.validate_record(series_name, column_names)
             except Exception as e:
-                errors.append("Validation error in {0}: {1}".format(series_name, e.message))
+                errors.append((Symbol.WARN_YELLOW, "Validation error in {0}: {1}".format(series_name, e.message)))
             finally:
                 i += len(column_names)-1   # 'time' column ignored
                 progress_bar(i, progress_len)
 
-        if errors:
-            print "The following errors were detected while importing:"
-            for error in errors:
-                print "  {0} {1}".format(Symbol.NOK_RED, error)
+        for error in errors:
+            print "  {0} {1}".format(error[0], error[1])
 
 
     def import_from_xml_folder(self, folder):
@@ -289,10 +297,6 @@ class InfluxdbClient:
             for error in errors:
                 print "  {0} {1}".format(Symbol.NOK_RED, error)
 
-        # prepare reverse table for collect
-        # {series: [ (field, file), ]} => {file: (series, column),}
-        self.settings.rrd_to_series = {field[1]: (series, field[0]) for series, fields in grouped_files.items() for field in fields}
-
     def get_settings(self):
         # the getter is useless in theory but making it explicit enforces the idea that we made modifications
         return self.settings
@@ -301,5 +305,5 @@ class InfluxdbClient:
 if __name__ == "__main__":
     # main used for dev/debug purpose only, use "import"
     e = InfluxdbClient()
-    e.prompt_setup(None)
+    e.prompt_setup()
     e.import_from_xml_folder("/tmp/xml")

@@ -125,7 +125,7 @@ class Panel:
     def to_json(self, settings):
         return {
             "title": self.title,
-            "datasource": settings.influxdb.database,
+            "datasource": settings.influxdb['database'],
             "stack": self.stack,
             "fill": self.fill,
             "type": "graph",
@@ -138,12 +138,12 @@ class Panel:
             "legend": {
                 "show": True,
                 "values": True,
-                "min": settings.grafana.show_minmax,
-                "max": settings.grafana.show_minmax,
-                "current": settings.grafana.show_minmax,
+                "min": settings.grafana['show_minmax'],
+                "max": settings.grafana['show_minmax'],
+                "current": settings.grafana['show_minmax'],
                 "total": False,
-                "avg": settings.grafana.show_minmax,
-                "alignAsTable": settings.grafana.show_minmax,
+                "avg": settings.grafana['show_minmax'],
+                "alignAsTable": settings.grafana['show_minmax'],
                 "rightSide": False
             },
             "grid": self.thresholds,
@@ -195,23 +195,23 @@ class Row:
         }
 
 class Dashboard:
-    def __init__(self, title):
+    def __init__(self, title, settings=Settings()):
         self.title = title
         self.rows = []
         self.tags = []
-        self.settings = Settings()
-
-    def prompt_setup(self, settings=Settings()):
         self.settings = settings
+
+    def prompt_setup(self):
         setup = self.settings.grafana
 
-        setup.filename = raw_input("  Dashboard file destination [/tmp/munin-grafana.json]: ").strip() or "/tmp/munin-grafana.json"
+        self.title = raw_input("  Dashboard title [{0}]: ".format(self.title)).strip() or self.title
+        setup['filename'] = raw_input("  Dashboard file destination [/tmp/munin-grafana.json]: ").strip() or "/tmp/munin-grafana.json"
 
         graph_per_row = raw_input("  Number of graphs per row [2]: ").strip() or "2"
-        setup.graph_per_row = int(graph_per_row)
+        setup['graph_per_row'] = int(graph_per_row)
 
         show_minmax = raw_input("  Show min/max/current in legend [y]/n: ").strip() or "y"
-        setup.show_minmax = show_minmax in ("y", "Y")
+        setup['show_minmax'] = show_minmax in ("y", "Y")
 
     def add_header(self, settings):
         row = Row("")
@@ -223,12 +223,12 @@ class Dashboard:
 <p>Thanks for using Munin-InfluxDB and the Grafana generator.</p>
 
 <ul>
-<li>Don't forget to add the new database provider in Grafana's <code>settings.js</code> if
+<li>Don't forget to add the new database provider in Grafana's <code>config.js</code> if
 necessary:
 <pre>
-    "{dbname}": {{
+    "{database}": {{
         "type": "influxdb"
-        "url": "http://{host}:{port}/db/{dbname}",
+        "url": "http://{host}:{port}/db/{database}",
         "username": "{user}",
         "password": "********",
     }}
@@ -239,11 +239,7 @@ necessary:
 <li>Feel free to post your suggestions on the GitHub page</li>
 </ul>
 '''
-        panel.content = content.format(dbname=settings.influxdb.database,
-                                             host=settings.influxdb.host,
-                                             port=settings.influxdb.port,
-                                             user=settings.influxdb.user
-                                            )
+        panel.content = content.format(**settings.influxdb)
         row.panels.append(panel)
         self.rows.append(row)
 
@@ -263,7 +259,7 @@ necessary:
 
     def save(self, filename=None):
         if filename is None:
-            filename = self.settings.grafana.filename
+            filename = self.settings.grafana['filename']
 
         with open(filename, "w") as f:
             json.dump(self.to_json(self.settings), f)
@@ -305,7 +301,7 @@ necessary:
                         i += 1
                         progress_bar(i, self.settings.nb_rrd_files)
 
-                    panel.width = 12//self.settings.grafana.graph_per_row
+                    panel.width = 12//self.settings.grafana['graph_per_row']
                     panel.process_graph_settings(_plugin.settings)
                     panel.process_graph_thresholds(_plugin.fields)
                     panel.process_graph_types(_plugin.fields)

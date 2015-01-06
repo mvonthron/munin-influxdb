@@ -1,4 +1,5 @@
 from collections import defaultdict
+import os
 import pprint
 import json
 
@@ -65,40 +66,42 @@ class Settings:
     def __init__(self):
         self.domains = defaultdict(Domain)
 
-    structure = defaultdict(dict)
+        self.nb_plugins = 0
+        self.nb_fields = 0
+        self.nb_rrd_files = 0
 
-    nb_plugins = 0
-    nb_fields = 0
-    nb_rrd_files = 0
+        self.influxdb = {
+            "host":  "localhost",
+            "port":  8086,
+            "user":  "root",
+            "password":  None,
+            "database": "munin"
+        }
 
-
-    # reversed table to ease collect's job
-    # reversed => [domain/host-plugin-field-t.rrd:42] = (series: domain.host.plugin, column: field)
-    rrd_to_series = []
+        self.grafana = {
+            "filename": "/tmp/munin-grafana.json",
+            "graph_per_row": 2,
+            "show_minmax": True
+        }
 
     class grafana:
         filename = "/tmp/munin-grafana.json"
         graph_per_row = 2
         show_minmax = True
 
-    class influxdb:
-        host, port = "localhost", 8086
-        user, passwd = "root", None
-        database = "munin"
-
     def save_collect_config(self, filename):
         config = {
-            "connection": {
-                "host": self.influxdb.host,
-                "port": self.influxdb.port,
-                "user": self.influxdb.user,
-                "passwd": self.influxdb.passwd,
-                "database": self.influxdb.database,
-            },
-            "statefiles": ["state-{0}-{1}.storable".format(domain, host) for domain in self.domains for host in self.domains[domain].hosts],
-            "series": {get_field(self, f, h, p, field).rrd_filename: (get_field(self, f, h, p, field).influxdb_series, get_field(self, f, h, p, field).influxdb_column)
+            "influxdb": self.influxdb,
+            "statefiles": [os.path.join(self.MUNIN_VAR_FOLDER, "state-{0}-{1}.storable".format(domain, host))
+                           for domain in self.domains
+                           for host in self.domains[domain].hosts
+            ],
+            # {rrd_filename: (series, column), ...}
+            "series": {get_field(self, f, h, p, field).rrd_filename:
+                                (get_field(self, f, h, p, field).influxdb_series,
+                                 get_field(self, f, h, p, field).influxdb_column)
                        for f, h, p, field in self.iter_fields()
-                       # if get_field(self, f, h, p, field).xml_imported
+                       if get_field(self, f, h, p, field).xml_imported
             },
             "lastupdate": None
         }

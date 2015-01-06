@@ -20,7 +20,7 @@ class Symbol:
     NOK_RED = "{0}{1}{2}".format(Color.RED, NOK, Color.CLEAR)
     WARN_YELLOW = "{0}{1}{2}".format(Color.YELLOW, WARN, Color.CLEAR)
 
-def progress_bar(current, max, title="Progress", length=50):
+def progress_bar(current, max, title="  Progress", length=50):
     """
     @see http://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console/13685020#13685020
     """
@@ -72,4 +72,10 @@ def parse_handle(handle):
         user, passwd = parse_user(e[0])
     host, port, dbname = parse_host(e[-1])
 
-    return user, passwd, host, port, dbname
+    return {
+        "user": user,
+        "password": passwd,
+        "host": host,
+        "port": port,
+        "database": dbname
+    }
