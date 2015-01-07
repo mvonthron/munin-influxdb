@@ -28,17 +28,16 @@ def pack_values(config, values):
         else:
             name = metric
 
-        if name not in config['metrics']:
+        if name in config['metrics']:
+            series, column = config['metrics'][name]
+
+            data[series]['time'] = [float(last_date)]
+            data[series][column] = [float(last_value) if last_value != 'U' else None]
+        else:
             age = (date - int(last_date)) // (24*3600)
             if age < 7:
                 print "{0} Not found series {1} (updated {2} days ago)".format(Symbol.WARN_YELLOW, name, age)
             # otherwise very probably a removed plugin, no problem
-            continue
-
-        series, column = config['metrics'][name]
-
-        data[series]['time'] = [last_date]
-        data[series][column] = [last_value]
 
     return data
 
@@ -48,11 +47,11 @@ def read_state_file(filename):
     assert 'spoolfetch' in data and 'value' in data
     return data['value'], data['spoolfetch']
 
-def main():
+def main(config_filename="/tmp/munin-collect-config.json"):
     client = InfluxdbClient()
 
     config = None
-    with open("/tmp/munin-collect-config.json") as f:
+    with open(config_filename) as f:
         config = json.load(f)
         print "{0} Opened configuration: {1}".format(Symbol.OK_GREEN, f.name)
     assert config
@@ -75,7 +74,7 @@ def main():
 
         config['lastupdate'] = max(config['lastupdate'], int(values[1]))
 
-    with open("/tmp/munin-collect-config.json", "w") as f:
+    with open(config_filename, "w") as f:
         json.dump(config, f)
         print "{0} Updated configuration: {1}".format(Symbol.OK_GREEN, f.name)
 

@@ -159,8 +159,6 @@ class InfluxdbClient:
         try:
             self.client.write_points(body)
         except influxdb.client.InfluxDBClientError as e:
-            with open("/tmp/err-import-{0}.json".format(name), "w") as f:
-                json.dump(body, f)
             raise Exception("Cannot insert in {0} series: {1}".format(name, e.message))
 
 
