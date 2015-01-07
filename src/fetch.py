@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import os
+import sys
 import json
 from collections import defaultdict
 
@@ -80,5 +82,32 @@ def main(config_filename="/tmp/munin-fetch-config.json"):
         json.dump(config, f)
         print "{0} Updated configuration: {1}".format(Symbol.OK_GREEN, f.name)
 
+def install_cron(script_file):
+    try:
+        import crontab
+    except ImportError:
+        from vendor import crontab
+
+    print "Installing cron job"
+
+    cron = crontab.CronTab(user='root')
+    job = cron.new(command=script_file, user='root', comment='Update InfluxDB with fresh values from Munin')
+    job.minute.every(5)
+
+    if job.is_valid() and job.is_enabled():
+        cron.write()
+
+    return job.is_valid() and job.is_enabled()
+
 if __name__ == "__main__":
-    main()
+    if sys.argv[1] == "--install-cron":
+        try:
+            script_file = sys.argv[2]
+        except IndexError:
+            print "{0} {1} must be called with it's own path as second argument (the shell script does it for you).".format(Symbol.NOK_RED, sys.argv[0])
+            sys.exit(1)
+
+        install_cron(script_file)
+
+    else:
+        main()
