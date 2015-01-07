@@ -32,7 +32,7 @@ def pack_values(config, values):
             series, column = config['metrics'][name]
 
             data[series]['time'] = [float(last_date)]
-            data[series][column] = [float(last_value) if last_value != 'U' else None]
+            data[series][column] = [float(last_value) if last_value != 'U' else None]   # 'U' is Munin value for unknown
         else:
             age = (date - int(last_date)) // (24*3600)
             if age < 7:
@@ -47,7 +47,7 @@ def read_state_file(filename):
     assert 'spoolfetch' in data and 'value' in data
     return data['value'], data['spoolfetch']
 
-def main(config_filename="/tmp/munin-collect-config.json"):
+def main(config_filename="/tmp/munin-fetch-config.json"):
     client = InfluxdbClient()
 
     config = None
@@ -70,9 +70,11 @@ def main(config_filename="/tmp/munin-collect-config.json"):
             print "{0} Parsed: {1}".format(Symbol.OK_GREEN, statefile)
 
         data = pack_values(config, values)
-        client.upload_multiple_series(data)
-
-        config['lastupdate'] = max(config['lastupdate'], int(values[1]))
+        if len(data):
+            client.upload_multiple_series(data)
+            config['lastupdate'] = max(config['lastupdate'], int(values[1]))
+        else:
+            print Symbol.NOK_RED, "No data found, is Munin still running?"
 
     with open(config_filename, "w") as f:
         json.dump(config, f)

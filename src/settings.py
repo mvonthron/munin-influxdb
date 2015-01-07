@@ -90,7 +90,7 @@ class Settings:
         graph_per_row = 2
         show_minmax = True
 
-    def save_collect_config(self, filename):
+    def save_fetch_config(self, filename):
         config = {
             "influxdb": self.influxdb,
             "statefiles": [os.path.join(self.MUNIN_VAR_FOLDER, "state-{0}-{1}.storable".format(domain, host))

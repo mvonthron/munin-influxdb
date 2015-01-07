@@ -52,8 +52,8 @@ def main():
     settings = exporter.get_settings()
     print "{0} Munin data successfully imported to {1}/db/{2}".format(Symbol.OK_GREEN, settings.influxdb['host'], settings.influxdb['database'])
 
-    settings.save_collect_config("/tmp/munin-collect-config.json")
-    print "{0} Configuration for 'munin-influxdb collect' exported to {1}".format(Symbol.OK_GREEN, "/tmp/munin-collect-config.json")
+    settings.save_fetch_config("/tmp/munin-fetch-config.json")
+    print "{0} Configuration for 'munin-influxdb fetch' exported to {1}".format(Symbol.OK_GREEN, "/tmp/munin-fetch-config.json")
 
     # Generate a JSON file to be uploaded to Grafana
     print "\n{0}Grafaba dashboard{1}".format(Color.BOLD, Color.CLEAR)

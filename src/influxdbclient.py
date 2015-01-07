@@ -246,7 +246,7 @@ class InfluxdbClient:
                         content = read_xml_file(_field.xml_filename)
                         [values[key].append(value) for key, value in content.items()]
 
-                        # keep track of influxdb storage info to allow 'collect'
+                        # keep track of influxdb storage info to allow 'fetch'
                         _field.influxdb_series = series_name
                         _field.influxdb_column = field
                         _field.xml_imported = True

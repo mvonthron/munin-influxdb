@@ -8,10 +8,10 @@ Tool to migrate smoothly from Munin (RRD) to InfluxDB and Grafana dashboards.
 Contains (*err, will contain*) two parts:
 
   * **import** 
-    * Import existing Munin data to [InfluxDB](http://influxdb.com) (groups fields in the same series by default). *Status: almost done*
-    * Generate a [Grafana](http://grafana.org/) dashboard based on the existing Munin configuration. *Status: almost done*
-  * **collect**
-    * Update InfluxDB with fresh data from a still running Munin service: *Status: not started*
+    * Import existing Munin data to [InfluxDB](http://influxdb.com) (groups fields in the same series by default). *Status: done*
+    * Generate a [Grafana](http://grafana.org/) dashboard based on the existing Munin configuration. *Status: done*
+  * **fetch**
+    * Update InfluxDB with fresh data from a still running Munin service: *Status: coming soon*
     * Run Munin's plugins but export to InfluxDB instead. *Status: not started*
 
 ![Import](http://i.imgur.com/kjhlUTg.png)
