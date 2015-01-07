@@ -100,7 +100,7 @@ def install_cron(script_file):
     return job.is_valid() and job.is_enabled()
 
 if __name__ == "__main__":
-    if sys.argv[1] == "--install-cron":
+    if len(sys.argv) > 1 and  sys.argv[1] == "--install-cron":
         try:
             script_file = sys.argv[2]
         except IndexError:
