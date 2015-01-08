@@ -2,6 +2,7 @@
 import os
 import sys
 import json
+import argparse
 from collections import defaultdict
 
 from utils import Symbol
@@ -82,6 +83,9 @@ def main(config_filename="/tmp/munin-fetch-config.json"):
         json.dump(config, f)
         print "{0} Updated configuration: {1}".format(Symbol.OK_GREEN, f.name)
 
+def uninstall_cron(script_file):
+    print "uninstall"
+
 def install_cron(script_file):
     try:
         import crontab
@@ -100,14 +104,24 @@ def install_cron(script_file):
     return job.is_valid() and job.is_enabled()
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and  sys.argv[1] == "--install-cron":
-        try:
-            script_file = sys.argv[2]
-        except IndexError:
-            print "{0} {1} must be called with it's own path as second argument (the shell script does it for you).".format(Symbol.NOK_RED, sys.argv[0])
-            sys.exit(1)
+    parser = argparse.ArgumentParser(description="""
+    'fetch' command grabs fresh data gathered by a still running Munin installation and send it to InfluxDB.
 
-        install_cron(script_file)
+    Currently, Munin needs to be still running to update the data in '/var/lib/munin/state-*' files.
+    """)
+    parser.add_argument('--config', default="/tmp/munin-fetch-config.json",
+                        help='overrides the default configuration file (default: %(default)s)')
+    parser.add_argument('--install-cron', dest='script_path',
+                        help='install a cron job to updated InfluxDB with fresh data from Munin every <period> minutes')
+    parser.add_argument('-p', '--period', default=5, type=int,
+                        help="sets the period in minutes between each fetch in the cron job (default: %(default)s)")
+    parser.add_argument('--uninstall-cron', action='store_true',
+                        help='uninstall the fetch cron job (any matching fetch.py actually)')
+    args = parser.parse_args()
 
+    if args.script_path:
+        install_cron(args.script_path, args.period)
+    elif args.uninstall_cron:
+        uninstall_cron()
     else:
-        main()
+        main(args.config)
