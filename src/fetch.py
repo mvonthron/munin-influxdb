@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-import os
-import sys
+import pwd
 import json
 import argparse
 from collections import defaultdict
@@ -14,6 +13,16 @@ try:
 except ImportError:
     from vendor import storable
 
+
+try:
+    pwd.getpwnam('munin')
+except KeyError:
+    CRON_USER = 'root'
+else:
+    CRON_USER = 'munin'
+
+# Cron job comment is used to uninstall and must not be manually deleted from the crontab
+CRON_COMMENT = 'Update InfluxDB with fresh values from Munin'
 
 def pack_values(config, values):
     suffix = ":{0}".format(DEFAULT_RRD_INDEX)
@@ -83,20 +92,28 @@ def main(config_filename="/tmp/munin-fetch-config.json"):
         json.dump(config, f)
         print "{0} Updated configuration: {1}".format(Symbol.OK_GREEN, f.name)
 
-def uninstall_cron(script_file):
-    print "uninstall"
-
-def install_cron(script_file):
+def uninstall_cron():
     try:
         import crontab
     except ImportError:
         from vendor import crontab
 
-    print "Installing cron job"
+    cron = crontab.CronTab(user=CRON_USER)
+    jobs = list(cron.find_comment(CRON_COMMENT))
+    cron.remove(*jobs)
+    cron.write()
 
-    cron = crontab.CronTab(user='root')
-    job = cron.new(command=script_file, user='root', comment='Update InfluxDB with fresh values from Munin')
-    job.minute.every(5)
+    return len(jobs)
+
+def install_cron(script_file, period):
+    try:
+        import crontab
+    except ImportError:
+        from vendor import crontab
+
+    cron = crontab.CronTab(user=CRON_USER)
+    job = cron.new(command=script_file, user=CRON_USER, comment=CRON_COMMENT)
+    job.minute.every(period)
 
     if job.is_valid() and job.is_enabled():
         cron.write()
@@ -111,17 +128,24 @@ if __name__ == "__main__":
     """)
     parser.add_argument('--config', default="/tmp/munin-fetch-config.json",
                         help='overrides the default configuration file (default: %(default)s)')
-    parser.add_argument('--install-cron', dest='script_path',
+    cronargs = parser.add_argument_group('cron job management')
+    cronargs.add_argument('--install-cron', dest='script_path',
                         help='install a cron job to updated InfluxDB with fresh data from Munin every <period> minutes')
-    parser.add_argument('-p', '--period', default=5, type=int,
+    cronargs.add_argument('-p', '--period', default=5, type=int,
                         help="sets the period in minutes between each fetch in the cron job (default: %(default)s)")
-    parser.add_argument('--uninstall-cron', action='store_true',
-                        help='uninstall the fetch cron job (any matching fetch.py actually)')
+    cronargs.add_argument('--uninstall-cron', action='store_true',
+                        help='uninstall the fetch cron job (any matching the initial comment actually)')
     args = parser.parse_args()
 
     if args.script_path:
         install_cron(args.script_path, args.period)
+        print "{0} Cron job installed for user {1}".format(Symbol.OK_GREEN, CRON_USER)
     elif args.uninstall_cron:
-        uninstall_cron()
+        nb = uninstall_cron()
+        if nb:
+            print "{0} Cron job uninstalled for user {1} ({2} entries deleted)".format(Symbol.OK_GREEN, CRON_USER, nb)
+        else:
+            print "No matching job found (searching comment \"{1}\" in crontab for user {2})".format(Symbol.WARN_YELLOW,
+                                                                                                     CRON_COMMENT, CRON_USER)
     else:
         main(args.config)
