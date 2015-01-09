@@ -10,18 +10,18 @@ function usage() {
 }
 
 function launch_install_cron() {
-    python src/fetch.py --install-cron $(dirname $(readlink -f "$0"))/src/fetch.py
+    python bin/fetch.py --install-cron $(dirname $(readlink -f "$0"))/src/fetch.py
 }
 
 if [[ $1 == "import" ]]; then
     shift
-    python src/import.py $@ && launch_install_cron
+    python bin/import.py $@ && launch_install_cron
 elif [[ $1 == "fetch" ]]; then
     if [[ $2 == "--install-cron" ]]; then
         launch_install_cron
     else
         shift
-        python src/fetch.py $@
+        python bin/fetch.py $@
     fi
 elif [[ $1 == "help" ]]; then
     usage

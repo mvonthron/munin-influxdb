@@ -11,7 +11,7 @@ Contains (*err, will contain*) two parts:
     * Import existing Munin data to [InfluxDB](http://influxdb.com) (groups fields in the same series by default). *Status: done*
     * Generate a [Grafana](http://grafana.org/) dashboard based on the existing Munin configuration. *Status: done*
   * **fetch**
-    * Update InfluxDB with fresh data from a still running Munin service: *Status: coming soon*
+    * Update InfluxDB with fresh data from a still running Munin service: *Status: done*
     * Run Munin's plugins but export to InfluxDB instead. *Status: not started*
 
 ![Import](http://i.imgur.com/kjhlUTg.png)

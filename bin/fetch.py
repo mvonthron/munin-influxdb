@@ -4,9 +4,9 @@ import json
 import argparse
 from collections import defaultdict
 
-from utils import Symbol
-from rrd import DEFAULT_RRD_INDEX
-from influxdbclient import InfluxdbClient
+from munininfluxdb.utils import Symbol
+from munininfluxdb.rrd import DEFAULT_RRD_INDEX
+from munininfluxdb.influxdbclient import InfluxdbClient
 
 try:
     import storable
