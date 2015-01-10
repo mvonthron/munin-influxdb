@@ -7,12 +7,7 @@ from settings import Settings
 
 from vendor import storable
 
-MUNIN_WWW_FOLDER = "/var/cache/munin/www"
-MUNIN_VAR_FOLDER = "/var/lib/munin"
-MUNIN_DATAFILE = "/var/lib/munin/datafile"
-
-
-def discover_from_datafile(filename, settings=Settings()):
+def discover_from_datafile(settings):
     """
     /var/lib/munin/htmlconf.storable contains a copy of all informations required to build the graph (limits, legend, types...)
     Parsing it should be much easier and much faster than running munin-run config
@@ -21,7 +16,7 @@ def discover_from_datafile(filename, settings=Settings()):
     @return: settings
     """
 
-    with open(filename) as f:
+    with open(settings.paths['datafile']) as f:
         for line in f.readlines():
             # header line
             if line.startswith("version"):
@@ -51,8 +46,8 @@ def discover_from_datafile(filename, settings=Settings()):
         settings.nb_fields += 1
 
         type_suffix = _field.settings["type"].lower()[0]
-        _field.rrd_filename = os.path.join(settings.MUNIN_RRD_FOLDER, domain, "{0}-{1}-{2}-{3}.rrd".format(host, plugin.replace(".", "-"), field, type_suffix))
-        _field.xml_filename = os.path.join(settings.MUNIN_XML_FOLDER, "{0}-{1}-{2}-{3}-{4}.xml".format(domain, host, plugin.replace(".", "-"), field, type_suffix))
+        _field.rrd_filename = os.path.join(settings.paths['munin'], domain, "{0}-{1}-{2}-{3}.rrd".format(host, plugin.replace(".", "-"), field, type_suffix))
+        _field.xml_filename = os.path.join(settings.paths['xml'], "{0}-{1}-{2}-{3}-{4}.xml".format(domain, host, plugin.replace(".", "-"), field, type_suffix))
 
         # remove multigraph intermediates
         if '.' in plugin:
@@ -65,7 +60,7 @@ def discover_from_datafile(filename, settings=Settings()):
 
     return settings
 
-def discover_from_www(folder, settings=Settings()):
+def discover_from_www(settings):
     """
     Builds a Munin dashboard structure (domain/host/plugins) by reading the HTML files
     rather than listing the cache folder because the later is likely to contain old data
@@ -81,6 +76,8 @@ def discover_from_www(folder, settings=Settings()):
             print "Please install BeautifulSoup to use this program"
             print "  pip install beautifulsoup4 or easy_install beautifulsoup4"
             sys.exit(1)
+
+    folder = settings.paths['www']
 
     print "Reading Munin www cache: ({0})".format(folder)
     with open(os.path.join(folder, "index.html")) as f:

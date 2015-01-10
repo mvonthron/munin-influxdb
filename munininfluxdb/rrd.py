@@ -4,13 +4,9 @@ import subprocess
 import math
 from collections import defaultdict
 import xml.etree.ElementTree as ET
-from settings import Settings
+from settings import Settings, Defaults
 from utils import ProgressBar, Symbol
 
-
-MUNIN_RRD_FOLDER = "/var/lib/munin/"
-MUNIN_XML_FOLDER = "/tmp/xml"
-DEFAULT_RRD_INDEX = 42
 
 # RRD types
 DATA_TYPES = {
@@ -67,12 +63,11 @@ def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
     return values
 
 
-def export_to_xml(settings, source, destination=MUNIN_XML_FOLDER):
+def export_to_xml(settings):
     progress_bar = ProgressBar(settings.nb_rrd_files)
 
-    assert os.path.exists(source)
     try:
-        os.makedirs(destination)
+        os.makedirs(settings.paths['xml'])
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
@@ -89,7 +84,7 @@ def export_to_xml(settings, source, destination=MUNIN_XML_FOLDER):
 
     return progress_bar.current
 
-def export_to_xml_in_folder(source, destination=MUNIN_XML_FOLDER):
+def export_to_xml_in_folder(source, destination=Defaults.MUNIN_XML_FOLDER):
     """
     Calls "rrdtool dump" to convert RRD database files in "source" folder to XML representation
     Converts all *.rrd files in source folder
@@ -117,7 +112,7 @@ def export_to_xml_in_folder(source, destination=MUNIN_XML_FOLDER):
     return nb_files
 
 
-def discover_from_rrd(folder, settings=Settings(), insert_missing=True, print_missing=False):
+def discover_from_rrd(settings, insert_missing=True, print_missing=False):
     """
     Builds a Munin dashboard structure (domain/host/plugins) by listing the files in the RRD folder
 
@@ -131,6 +126,7 @@ def discover_from_rrd(folder, settings=Settings(), insert_missing=True, print_mi
                    `-------------------------------- Group name: 'SomeGroup'
     """
 
+    folder = settings.paths['munin']
     print "Reading Munin RRD cache: ({0})".format(folder)
 
     not_inserted = defaultdict(dict)
@@ -177,8 +173,8 @@ def discover_from_rrd(folder, settings=Settings(), insert_missing=True, print_mi
                 plugin_data.fields[field].rrd_found = False
             else:
                 plugin_data.fields[field].rrd_found = True
-                plugin_data.fields[field].rrd_filename = os.path.join(settings.MUNIN_RRD_FOLDER, domain, filename)
-                plugin_data.fields[field].xml_filename = os.path.join(settings.MUNIN_RRD_FOLDER, domain, filename.replace(".rrd", ".xml"))
+                plugin_data.fields[field].rrd_filename = os.path.join(settings.paths['munin'], domain, filename)
+                plugin_data.fields[field].xml_filename = os.path.join(settings.paths['xml'], domain, filename.replace(".rrd", ".xml"))
                 plugin_data.fields[field].settings = {
                     "type": DATA_TYPES[datatype]
                 }
@@ -194,7 +190,7 @@ def discover_from_rrd(folder, settings=Settings(), insert_missing=True, print_mi
     return settings
 
 
-def check_rrd_files(settings, folder=MUNIN_RRD_FOLDER):
+def check_rrd_files(settings, folder=Defaults.MUNIN_RRD_FOLDER):
     missing = []
     for domain, host, plugin, field in settings.iter_fields():
         _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]

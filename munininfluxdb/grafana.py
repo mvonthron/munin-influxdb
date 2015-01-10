@@ -195,7 +195,7 @@ class Row:
         }
 
 class Dashboard:
-    def __init__(self, title, settings=Settings()):
+    def __init__(self, title, settings):
         self.title = title
         self.rows = []
         self.tags = []

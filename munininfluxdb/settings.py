@@ -3,6 +3,8 @@ import os
 import pprint
 import json
 
+from utils import parse_handle
+
 get_field = lambda s, d, h, p, f: s.domains[d].hosts[h].plugins[p].fields[f]
 
 class Field:
@@ -54,7 +56,7 @@ class Domain:
     def __repr__(self):
         return pprint.pformat(dict(self.hosts))
 
-class Settings:
+class Defaults:
     MUNIN_RRD_FOLDER = "/var/lib/munin/"
     MUNIN_XML_FOLDER = "/tmp/xml"
     DEFAULT_RRD_INDEX = 42
@@ -63,37 +65,40 @@ class Settings:
     MUNIN_VAR_FOLDER = "/var/lib/munin"
     MUNIN_DATAFILE = "/var/lib/munin/datafile"
 
-    def __init__(self):
+class Settings:
+    def __init__(self, cli_args):
         self.domains = defaultdict(Domain)
+
+        self.interactive = cli_args.interactive
+        self.verbose = cli_args.verbose
+
+        self.influxdb = parse_handle(cli_args.influxdb)
+        self.influxdb.update({
+            "group_fields": cli_args.group_fields,
+        })
+        self.paths = {
+            "munin": cli_args.munin_path,
+            "datafile": os.path.join(cli_args.munin_path, 'datafile'),
+            "www": cli_args.www,
+            "xml": cli_args.xml_temp_path,
+        }
+        self.grafana = {
+            "enable": cli_args.grafana,
+            "filename": cli_args.grafana_file,
+            "title": cli_args.grafana_title,
+            "graph_per_row": cli_args.grafana_cols,
+            "tags": cli_args.grafana_tags,
+            "show_minmax": cli_args.show_minmax,
+        }
 
         self.nb_plugins = 0
         self.nb_fields = 0
         self.nb_rrd_files = 0
 
-        self.influxdb = {
-            "host":  "localhost",
-            "port":  8086,
-            "user":  "root",
-            "password":  None,
-            "database": "munin",
-            "group_fields": True,
-        }
-
-        self.grafana = {
-            "filename": "/tmp/munin-grafana.json",
-            "graph_per_row": 2,
-            "show_minmax": True,
-        }
-
-    class grafana:
-        filename = "/tmp/munin-grafana.json"
-        graph_per_row = 2
-        show_minmax = True
-
     def save_fetch_config(self, filename):
         config = {
             "influxdb": self.influxdb,
-            "statefiles": [os.path.join(self.MUNIN_VAR_FOLDER, "state-{0}-{1}.storable".format(domain, host))
+            "statefiles": [os.path.join(self.paths['munin'], "state-{0}-{1}.storable".format(domain, host))
                            for domain in self.domains
                            for host in self.domains[domain].hosts
             ],

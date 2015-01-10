@@ -1,29 +1,31 @@
 #!/usr/bin/env python
 
 import argparse
+import sys
 
 from munininfluxdb import munin
 from munininfluxdb import rrd
+from munininfluxdb.settings import Settings, Defaults
 from munininfluxdb.influxdbclient import InfluxdbClient
 from munininfluxdb.grafana import Dashboard
 from munininfluxdb.utils import Color, Symbol
 
 
-def retrieve_munin_configuration():
+def retrieve_munin_configuration(settings):
     """
     """
     print "Exploring Munin structure"
 
     try:
-        settings = munin.discover_from_datafile(munin.MUNIN_DATAFILE)
+        settings = munin.discover_from_datafile(settings)
     except:
-        print "  {0} Could not process datafile ({1}), will read www and RRD cache instead".format(Symbol.NOK_RED,
-                                                                                                   munin.MUNIN_DATAFILE)
+        print "  {0} Could not process datafile ({1}), will read www and RRD cache instead".format(Symbol.NOK_RED, settings.paths['datafile'])
+
         # read /var/cache/munin/www to check what's currently displayed on the dashboard
-        settings = munin.discover_from_www(munin.MUNIN_WWW_FOLDER)
-        settings = rrd.discover_from_rrd(rrd.MUNIN_RRD_FOLDER, settings=settings, insert_missing=False)
+        settings = munin.discover_from_www(settings)
+        settings = rrd.discover_from_rrd(settings, insert_missing=False)
     else:
-        print "  {0} Found {1}: extracted {2} measurement units".format(Symbol.OK_GREEN, munin.MUNIN_DATAFILE,
+        print "  {0} Found {1}: extracted {2} measurement units".format(Symbol.OK_GREEN, settings.paths['datafile'],
                                                                         settings.nb_fields)
 
     # for each host, find the /var/lib/munin/<host> directory and check if node name and plugin conf match RRD files
@@ -37,15 +39,17 @@ def retrieve_munin_configuration():
     return settings
 
 
-def main():
+def main(args):
     print "{0}Munin to InfluxDB migration tool{1}".format(Color.BOLD, Color.CLEAR)
     print "-" * 20
-    settings = retrieve_munin_configuration()
+
+    settings = Settings(args)
+    settings = retrieve_munin_configuration(settings)
 
     # export RRD files as XML for (much) easier parsing (but takes much more time)
     print "\nExporting RRD databases:".format(settings.nb_rrd_files)
-    nb_xml = rrd.export_to_xml(settings, rrd.MUNIN_RRD_FOLDER)
-    print "  {0} Exported {1} RRD files to XML ({2})".format(Symbol.OK_GREEN, nb_xml, rrd.MUNIN_XML_FOLDER)
+    nb_xml = rrd.export_to_xml(settings)
+    print "  {0} Exported {1} RRD files to XML ({2})".format(Symbol.OK_GREEN, nb_xml, settings.paths['xml'])
 
     #reads every XML file and export as in the InfluxDB database
     exporter = InfluxdbClient(settings)
@@ -91,11 +95,15 @@ if __name__ == "__main__":
     parser.add_argument('--interactive', dest='interactive', action='store_true')
     parser.add_argument('--no-interactive', dest='interactive', action='store_false')
     parser.set_defaults(interactive=True)
-    parser.add_argument('--keep-temp', action='store_true', help='instruct to retain temporary files (mostly RRD\'s XML) after generation')
+    parser.add_argument('--xml-temp-path', default=Defaults.MUNIN_XML_FOLDER,
+                        help='set path where to store result of RRD exported files (default: %(default)s)')
+    parser.add_argument('--keep-temp', action='store_true',
+                        help='instruct to retain temporary files (mostly RRD\'s XML) after generation')
     parser.add_argument('-v', '--verbose', type=int, default=1,
                         help='set verbosity level (0: quiet, 1: default, 2: debug)')
     parser.add_argument('--fetch-config-path', default='/tmp/munin-influxdb/fetch-config.json',
-                        help='set output configuration file to be used but \'fetch\' command afterwards %(default)s)')
+                        help='set output configuration file to be used but \'fetch\' command afterwards (default: %(default)s)')
+
     # InfluxDB
     idbargs = parser.add_argument_group('InfluxDB parameters')
     idbargs.add_argument('-c', '--influxdb', default="root@localhost:8086/db/munin",
@@ -108,16 +116,23 @@ if __name__ == "__main__":
 
     # Munin
     munargs = parser.add_argument_group('Munin parameters')
-    munargs.add_argument('--munin-path', default="/var/lib/munin", help='path to main Munin folder (default: %(default)s)')
-    munargs.add_argument('--www', '--munin-www-path', default="/var/cache/munin/www", help='path to main Munin folder (default: %(default)s)')
-    munargs.add_argument('--rrd', '--munin-rrd-path', default="/var/lib/munin", help='path to main Munin folder (default: %(default)s)')
+    munargs.add_argument('--munin-path', default=Defaults.MUNIN_VAR_FOLDER,
+                         help='path to main Munin folder (default: %(default)s)')
+    munargs.add_argument('--www', '--munin-www-path', default=Defaults.MUNIN_WWW_FOLDER,
+                         help='path to main Munin folder (default: %(default)s)')
+    munargs.add_argument('--rrd', '--munin-rrd-path', default=Defaults.MUNIN_RRD_FOLDER,
+                         help='path to main Munin folder (default: %(default)s)')
 
     # Grafana
     grafanargs = parser.add_argument_group('Grafana dashboard generation')
-    grafanargs.add_argument('--grafana', dest='grafana', action='store_true', help='enable Grafana dashboard generation (default)')
-    grafanargs.add_argument('--no-grafana', dest='grafana', action='store_false', help='disable Grafana dashboard generation')
+    grafanargs.add_argument('--grafana', dest='grafana', action='store_true',
+                            help='enable Grafana dashboard generation (default)')
+    grafanargs.add_argument('--no-grafana', dest='grafana', action='store_false',
+                            help='disable Grafana dashboard generation')
     grafanargs.set_defaults(grafana=True)
-
+    grafanargs.add_argument('--grafana-minmax', dest='show_minmax', action='store_true', help='display min/max/current in legend (default)')
+    grafanargs.add_argument('--grafana-no-minmax', dest='show_minmax', action='store_false', help='no values in legend')
+    grafanargs.set_defaults(show_minmax=True)
     grafanargs.add_argument('--grafana-title', default="Munin Dashboard", help='dashboard title')
     grafanargs.add_argument('--grafana-file', default="/tmp/munin-influxdb/munin-grafana.json",
                             help='path to output json file, will have to be imported manually to Grafana')
@@ -126,14 +141,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    import sys
-    from pprint import pprint
-    pprint(args)
-    sys.exit(1)
-
     try:
-        main()
+        main(args)
     except KeyboardInterrupt:
         print "\n{0} Canceled.".format(Symbol.NOK_RED)
+        sys.exit(1)
     except Exception as e:
         print "{0} Error: {1}".format(Symbol.NOK_RED, e.message)
+        sys.exit(1)

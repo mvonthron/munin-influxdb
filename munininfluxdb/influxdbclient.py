@@ -11,12 +11,11 @@ from settings import Settings
 
 
 class InfluxdbClient:
-    def __init__(self, settings=Settings(), hostname="root@localhost:8086"):
+    def __init__(self, settings):
         self.client = None
         self.valid = False
 
         self.settings = settings
-        self.settings.influxdb.update(parse_handle(hostname))
 
     def connect(self, silent=False):
         try:
