@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import argparse
+
 from munininfluxdb import munin
 from munininfluxdb import rrd
 from munininfluxdb.influxdbclient import InfluxdbClient
@@ -83,6 +85,52 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="""
+    'import' command
+    """)
+    parser.add_argument('--interactive', dest='interactive', action='store_true')
+    parser.add_argument('--no-interactive', dest='interactive', action='store_false')
+    parser.set_defaults(interactive=True)
+    parser.add_argument('--keep-temp', action='store_true', help='instruct to retain temporary files (mostly RRD\'s XML) after generation')
+    parser.add_argument('-v', '--verbose', type=int, default=1,
+                        help='set verbosity level (0: quiet, 1: default, 2: debug)')
+    parser.add_argument('--fetch-config-path', default='/tmp/munin-influxdb/fetch-config.json',
+                        help='set output configuration file to be used but \'fetch\' command afterwards %(default)s)')
+    # InfluxDB
+    idbargs = parser.add_argument_group('InfluxDB parameters')
+    idbargs.add_argument('-c', '--influxdb', default="root@localhost:8086/db/munin",
+                        help='connection handle to InfluxDB server, format [user[:password]]@host[:port][/db/dbname] (default: %(default)s)')
+    parser.add_argument('--group-fields', dest='group_fields', action='store_true',
+                        help='group all fields of a plugin in the same InfluxDB time series (default)')
+    parser.add_argument('--no-group-fields', dest='group_fields', action='store_false',
+                        help='store each field in its own time series (cannot generate Grafana dashboard))')
+    parser.set_defaults(group_fields=True)
+
+    # Munin
+    munargs = parser.add_argument_group('Munin parameters')
+    munargs.add_argument('--munin-path', default="/var/lib/munin", help='path to main Munin folder (default: %(default)s)')
+    munargs.add_argument('--www', '--munin-www-path', default="/var/cache/munin/www", help='path to main Munin folder (default: %(default)s)')
+    munargs.add_argument('--rrd', '--munin-rrd-path', default="/var/lib/munin", help='path to main Munin folder (default: %(default)s)')
+
+    # Grafana
+    grafanargs = parser.add_argument_group('Grafana dashboard generation')
+    grafanargs.add_argument('--grafana', dest='grafana', action='store_true', help='enable Grafana dashboard generation (default)')
+    grafanargs.add_argument('--no-grafana', dest='grafana', action='store_false', help='disable Grafana dashboard generation')
+    grafanargs.set_defaults(grafana=True)
+
+    grafanargs.add_argument('--grafana-title', default="Munin Dashboard", help='dashboard title')
+    grafanargs.add_argument('--grafana-file', default="/tmp/munin-influxdb/munin-grafana.json",
+                            help='path to output json file, will have to be imported manually to Grafana')
+    grafanargs.add_argument('--grafana-cols', default=2, type=int, help='number of panel per row')
+    grafanargs.add_argument('--grafana-tags', nargs='+', help='grafana dashboard tags')
+
+    args = parser.parse_args()
+
+    import sys
+    from pprint import pprint
+    pprint(args)
+    sys.exit(1)
+
     try:
         main()
     except KeyboardInterrupt:
