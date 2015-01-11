@@ -53,7 +53,14 @@ def main(args):
 
     #reads every XML file and export as in the InfluxDB database
     exporter = InfluxdbClient(settings)
-    exporter.prompt_setup()
+    if settings.interactive:
+        exporter.prompt_setup()
+    else:
+        # even in non-interactive mode, we ask for the password if empty
+        if not exporter.settings.influxdb['password']:
+            exporter.settings.influxdb['password'] = InfluxdbClient.ask_password()
+        exporter.connect()
+        exporter.test_db(exporter.settings.influxdb['database'])    # needed to create db if missing
 
     exporter.import_from_xml()
 
@@ -71,10 +78,14 @@ def main(args):
         print Symbol.NOK_RED, "Grafana dashboard generation is only supported in grouped fields mode."
         return
 
-    create_dash = raw_input("Would you like to generate a Grafana dashboard? [y]/n: ") or "y"
-    if create_dash in ("y", "Y"):
+    if settings.interactive:
+        settings.grafana['create'] = (raw_input("Would you like to generate a Grafana dashboard? [y]/n: ") or "y") in ('y', 'Y')
+
+    if settings.grafana['create']:
         dashboard = Dashboard("Munin dashboard", settings)
-        dashboard.prompt_setup()
+        if settings.interactive:
+            dashboard.prompt_setup()
+
         dashboard.generate()
 
         try:

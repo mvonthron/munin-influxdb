@@ -83,7 +83,7 @@ class Settings:
             "xml": cli_args.xml_temp_path,
         }
         self.grafana = {
-            "enable": cli_args.grafana,
+            "create": cli_args.grafana,
             "filename": cli_args.grafana_file,
             "title": cli_args.grafana_title,
             "graph_per_row": cli_args.grafana_cols,

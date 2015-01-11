@@ -5,7 +5,7 @@ import argparse
 from collections import defaultdict
 
 from munininfluxdb.utils import Symbol
-from munininfluxdb.rrd import DEFAULT_RRD_INDEX
+from munininfluxdb.settings import Defaults
 from munininfluxdb.influxdbclient import InfluxdbClient
 
 try:
@@ -25,7 +25,7 @@ else:
 CRON_COMMENT = 'Update InfluxDB with fresh values from Munin'
 
 def pack_values(config, values):
-    suffix = ":{0}".format(DEFAULT_RRD_INDEX)
+    suffix = ":{0}".format(Defaults.MUNIN_RRD_FOLDER)
     metrics, date = values
     date = int(date)
 

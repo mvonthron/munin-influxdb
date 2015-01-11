@@ -48,9 +48,10 @@ class InfluxdbClient:
 
         db_list = self.client.get_database_list()
         if not {'name': name} in db_list:
-            create = raw_input("{0} database doesn't exist. Would you want to create it? [y]/n: ".format(name)) or "y"
-            if not create in ("y", "Y"):
-                return False
+            if self.settings.interactive:
+                create = raw_input("{0} database doesn't exist. Would you want to create it? [y]/n: ".format(name)) or "y"
+                if not create in ("y", "Y"):
+                    return False
 
             try:
                 self.client.create_database(name)
@@ -98,6 +99,10 @@ class InfluxdbClient:
 
         return res
 
+    @staticmethod
+    def ask_password():
+        return getpass.getpass("  - password: ")
+
     def prompt_setup(self):
         setup = self.settings.influxdb
         print "\n{0}InfluxDB: Please enter your connection information{1}".format(Color.BOLD, Color.CLEAR)
@@ -115,7 +120,7 @@ class InfluxdbClient:
 
             setup['port'] = raw_input("  - port [{0}]: ".format(setup['port'])) or setup['port']
             setup['user'] = raw_input("  - user [{0}]: ".format(setup['user'])) or setup['user']
-            setup['password'] = getpass.getpass("  - password: ")
+            setup['password'] = InfluxdbClient.ask_password()
 
             self.connect()
 
@@ -315,10 +320,11 @@ class InfluxdbClient:
             else:
                 grouped_files[".".join([series_name, parts[-2]])].append(('value', fullname))
 
-        show = raw_input("Would you like to see the prospective series and columns? y/[n]: ") or "n"
-        if show in ("y", "Y"):
-            for series_name in sorted(grouped_files):
-                print "  - {2}{0}{3}: {1}".format(series_name, [name for name, _ in grouped_files[series_name]], Color.GREEN, Color.CLEAR)
+        if self.settings.interactive:
+            show = raw_input("Would you like to see the prospective series and columns? y/[n]: ") or "n"
+            if show in ("y", "Y"):
+                for series_name in sorted(grouped_files):
+                    print "  - {2}{0}{3}: {1}".format(series_name, [name for name, _ in grouped_files[series_name]], Color.GREEN, Color.CLEAR)
 
         print "Importing {0} XML files".format(len(file_list))
         for series_name in grouped_files:
