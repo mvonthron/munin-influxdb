@@ -59,7 +59,7 @@ def read_state_file(filename):
     assert 'spoolfetch' in data and 'value' in data
     return data['value'], data['spoolfetch']
 
-def main(config_filename="/tmp/munin-fetch-config.json"):
+def main(config_filename=Defaults.FETCH_CONFIG):
     client = InfluxdbClient()
 
     config = None
@@ -126,7 +126,7 @@ if __name__ == "__main__":
 
     Currently, Munin needs to be still running to update the data in '/var/lib/munin/state-*' files.
     """)
-    parser.add_argument('--config', default="/tmp/munin-fetch-config.json",
+    parser.add_argument('--config', default=Defaults.FETCH_CONFIG,
                         help='overrides the default configuration file (default: %(default)s)')
     cronargs = parser.add_argument_group('cron job management')
     cronargs.add_argument('--install-cron', dest='script_path',

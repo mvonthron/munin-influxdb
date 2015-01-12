@@ -68,13 +68,13 @@ def main(args):
     print "{0} Munin data successfully imported to {1}/db/{2}".format(Symbol.OK_GREEN, settings.influxdb['host'],
                                                                       settings.influxdb['database'])
 
-    settings.save_fetch_config("/tmp/munin-fetch-config.json")
+    settings.save_fetch_config()
     print "{0} Configuration for 'munin-influxdb fetch' exported to {1}".format(Symbol.OK_GREEN,
-                                                                                "/tmp/munin-fetch-config.json")
+                                                                                settings.paths['fetch_config'])
 
     # Generate a JSON file to be uploaded to Grafana
     print "\n{0}Grafaba dashboard{1}".format(Color.BOLD, Color.CLEAR)
-    if not settings.influxdb['group_fields']:
+    if not settings.influxdb['group_fields'] and settings.grafana['create']:
         print Symbol.NOK_RED, "Grafana dashboard generation is only supported in grouped fields mode."
         return
 
@@ -82,7 +82,7 @@ def main(args):
         settings.grafana['create'] = (raw_input("Would you like to generate a Grafana dashboard? [y]/n: ") or "y") in ('y', 'Y')
 
     if settings.grafana['create']:
-        dashboard = Dashboard("Munin dashboard", settings)
+        dashboard = Dashboard(settings)
         if settings.interactive:
             dashboard.prompt_setup()
 
@@ -101,7 +101,16 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="""
-    'import' command
+    'import' command is a conversion tool from Munin to InfluxDB + Grafana
+
+    It reads Munin's configuration files, parses the RRD folder (WWW cache folder if needed) to extract the structure
+    of your current Munin setup. Data, with full history, is converted to InfluxDB time series format and uploaded to
+    a InfluxDB server. You then have the possibility to generate a Grafana dashboard (JSON file to be imported manually)
+    taking advantage of the features of Grafana with you current Munin configuration and plugins.
+
+    After 'import' is completed, a cron job is installed to run the 'fetch' command every 5 minutes (default Munin analysis
+    period). This updates the InfluxDB series with fresh data from Munin.
+    See 'fetch -h' for details.
     """)
     parser.add_argument('--interactive', dest='interactive', action='store_true')
     parser.add_argument('--no-interactive', dest='interactive', action='store_false')
@@ -112,7 +121,7 @@ if __name__ == "__main__":
                         help='instruct to retain temporary files (mostly RRD\'s XML) after generation')
     parser.add_argument('-v', '--verbose', type=int, default=1,
                         help='set verbosity level (0: quiet, 1: default, 2: debug)')
-    parser.add_argument('--fetch-config-path', default='/tmp/munin-influxdb/fetch-config.json',
+    parser.add_argument('--fetch-config-path', default=Defaults.FETCH_CONFIG,
                         help='set output configuration file to be used but \'fetch\' command afterwards (default: %(default)s)')
 
     # InfluxDB

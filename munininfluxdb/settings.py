@@ -57,13 +57,16 @@ class Domain:
         return pprint.pformat(dict(self.hosts))
 
 class Defaults:
-    MUNIN_RRD_FOLDER = "/var/lib/munin/"
-    MUNIN_XML_FOLDER = "/tmp/xml"
-    DEFAULT_RRD_INDEX = 42
-
-    MUNIN_WWW_FOLDER = "/var/cache/munin/www"
+    MUNIN_RRD_FOLDER = "/var/lib/munin"
     MUNIN_VAR_FOLDER = "/var/lib/munin"
+    MUNIN_WWW_FOLDER = "/var/cache/munin/www"
     MUNIN_DATAFILE = "/var/lib/munin/datafile"
+
+    TEMP_FOLDER = "/tmp/munin-influxdb"
+    FETCH_CONFIG = TEMP_FOLDER+"/munin-fetch-config.json"
+    MUNIN_XML_FOLDER = TEMP_FOLDER+"/xml"
+
+    DEFAULT_RRD_INDEX = 42
 
 class Settings:
     def __init__(self, cli_args):
@@ -79,6 +82,7 @@ class Settings:
         self.paths = {
             "munin": cli_args.munin_path,
             "datafile": os.path.join(cli_args.munin_path, 'datafile'),
+            "fetch_config": cli_args.fetch_config_path,
             "www": cli_args.www,
             "xml": cli_args.xml_temp_path,
         }
@@ -95,7 +99,7 @@ class Settings:
         self.nb_fields = 0
         self.nb_rrd_files = 0
 
-    def save_fetch_config(self, filename):
+    def save_fetch_config(self):
         config = {
             "influxdb": self.influxdb,
             "statefiles": [os.path.join(self.paths['munin'], "state-{0}-{1}.storable".format(domain, host))
@@ -112,7 +116,7 @@ class Settings:
             "lastupdate": None
         }
 
-        with open(filename, "w") as f:
+        with open(self.paths['fetch_config'], 'w') as f:
             json.dump(config, f, indent=2, separators=(',', ': '))
 
     def iter_plugins(self):

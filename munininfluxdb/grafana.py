@@ -195,10 +195,10 @@ class Row:
         }
 
 class Dashboard:
-    def __init__(self, title, settings):
-        self.title = title
+    def __init__(self, settings):
+        self.title = settings.grafana['title']
+        self.tags = settings.grafana['tags']
         self.rows = []
-        self.tags = []
         self.settings = settings
 
     def prompt_setup(self):
