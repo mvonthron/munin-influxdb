@@ -38,6 +38,31 @@ Grafana layout settings are imported from Munin plugin's configuration. Supporte
 
 ![Dashboard](http://i.imgur.com/pddwXD4.png)
 
+Installation
+---------
+
+Very simple!
+
+1. Clone the repository:
+
+    ```
+    $ git clone https://github.com/mvonthron/munin-influxdb.git
+    ``` 
+    
+2. Install as any Python package: 
+
+  ```
+  $ sudo python setup.py install
+  ``` 
+  
+3. Run ```import``` command: 
+
+  ```
+  $ sudo ./muninflux import
+  ```
+  
+4. A cron job will be automatically added after installation to refresh data from munin every 5 minutes (Munin default)
+
 Licensing
 ---------
 
