@@ -25,7 +25,7 @@ else:
 CRON_COMMENT = 'Update InfluxDB with fresh values from Munin'
 
 def pack_values(config, values):
-    suffix = ":{0}".format(Defaults.MUNIN_RRD_FOLDER)
+    suffix = ":{0}".format(Defaults.DEFAULT_RRD_INDEX)
     metrics, date = values
     date = int(date)
 
