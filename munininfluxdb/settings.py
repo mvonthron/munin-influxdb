@@ -69,31 +69,54 @@ class Defaults:
     DEFAULT_RRD_INDEX = 42
 
 class Settings:
-    def __init__(self, cli_args):
+    def __init__(self, cli_args=None):
         self.domains = defaultdict(Domain)
 
-        self.interactive = cli_args.interactive
-        self.verbose = cli_args.verbose
+        if cli_args:
+            self.interactive = cli_args.interactive
+            self.verbose = cli_args.verbose
 
-        self.influxdb = parse_handle(cli_args.influxdb)
-        self.influxdb.update({
-            "group_fields": cli_args.group_fields,
-        })
-        self.paths = {
-            "munin": cli_args.munin_path,
-            "datafile": os.path.join(cli_args.munin_path, 'datafile'),
-            "fetch_config": cli_args.fetch_config_path,
-            "www": cli_args.www,
-            "xml": cli_args.xml_temp_path,
-        }
-        self.grafana = {
-            "create": cli_args.grafana,
-            "filename": cli_args.grafana_file,
-            "title": cli_args.grafana_title,
-            "graph_per_row": cli_args.grafana_cols,
-            "tags": cli_args.grafana_tags,
-            "show_minmax": cli_args.show_minmax,
-        }
+            self.influxdb = parse_handle(cli_args.influxdb)
+            self.influxdb.update({
+                "group_fields": cli_args.group_fields,
+            })
+            self.paths = {
+                "munin": cli_args.munin_path,
+                "datafile": os.path.join(cli_args.munin_path, 'datafile'),
+                "fetch_config": cli_args.fetch_config_path,
+                "www": cli_args.www,
+                "xml": cli_args.xml_temp_path,
+            }
+            self.grafana = {
+                "create": cli_args.grafana,
+                "filename": cli_args.grafana_file,
+                "title": cli_args.grafana_title,
+                "graph_per_row": cli_args.grafana_cols,
+                "tags": cli_args.grafana_tags,
+                "show_minmax": cli_args.show_minmax,
+            }
+        else:
+            self.interactive = True
+            self.verbose = 1
+
+            self.influxdb = parse_handle("root@localhost:8086/db/munin")
+            self.influxdb.update({"group_fields": True})
+            self.paths = {
+                "munin": Defaults.MUNIN_VAR_FOLDER,
+                "datafile": os.path.join(Defaults.MUNIN_VAR_FOLDER, 'datafile'),
+                "fetch_config": Defaults.FETCH_CONFIG,
+                "www": Defaults.MUNIN_WWW_FOLDER,
+                "xml": Defaults.MUNIN_XML_FOLDER,
+            }
+            self.grafana = {
+                "create": True,
+                "filename": "/tmp/munin-influxdb/munin-grafana.json",
+                "title": "Munin Dashboard",
+                "graph_per_row": 2,
+                "tags": "grafana munin",
+                "show_minmax": True,
+            }
+
 
         self.nb_plugins = 0
         self.nb_fields = 0

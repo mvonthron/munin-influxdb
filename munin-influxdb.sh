@@ -10,7 +10,7 @@ function usage() {
 }
 
 function launch_install_cron() {
-    python bin/fetch.py --install-cron $(dirname $(readlink -f "$0"))/src/fetch.py
+    python bin/fetch.py --install-cron $(dirname $(readlink -f "$0"))/bin/fetch.py
 }
 
 if [[ $1 == "import" ]]; then

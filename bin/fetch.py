@@ -5,7 +5,7 @@ import argparse
 from collections import defaultdict
 
 from munininfluxdb.utils import Symbol
-from munininfluxdb.settings import Defaults
+from munininfluxdb.settings import Defaults, Settings
 from munininfluxdb.influxdbclient import InfluxdbClient
 
 try:
@@ -60,7 +60,7 @@ def read_state_file(filename):
     return data['value'], data['spoolfetch']
 
 def main(config_filename=Defaults.FETCH_CONFIG):
-    client = InfluxdbClient()
+    client = InfluxdbClient(Settings())
 
     config = None
     with open(config_filename) as f:
