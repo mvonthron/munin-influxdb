@@ -3,7 +3,7 @@ import getpass
 import json
 from collections import defaultdict
 
-import influxdb
+import influxdb.influxdb08 as influxdb
 import rrd
 from utils import ProgressBar, parse_handle, Color, Symbol
 from rrd import read_xml_file
