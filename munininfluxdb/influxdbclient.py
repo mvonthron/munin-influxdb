@@ -3,11 +3,18 @@ import getpass
 import json
 from collections import defaultdict
 
-import influxdb.influxdb08 as influxdb
+import influxdb
+try:
+    # poor man's check
+    assert influxdb.__version__.startswith('2')
+except (AssertionError, AttributeError) as e:
+    raise ImportError("InfluxDB API is too old, please update (e.g: pip install influxdb --upgrade)")
+
 import rrd
 from utils import ProgressBar, parse_handle, Color, Symbol
 from rrd import read_xml_file
 from settings import Settings
+
 
 
 class InfluxdbClient:
@@ -22,10 +29,11 @@ class InfluxdbClient:
             client = influxdb.InfluxDBClient(self.settings.influxdb['host'],
                                              self.settings.influxdb['port'],
                                              self.settings.influxdb['user'],
-                                             self.settings.influxdb['password'])
+                                             self.settings.influxdb['password']
+                                             )
 
             # dummy request to test connection
-            client.get_database_list()
+            client.get_list_database()
         except influxdb.client.InfluxDBClientError as e:
             self.client, self.valid = None, False
             if not silent:
@@ -37,7 +45,7 @@ class InfluxdbClient:
             self.client, self.valid = client, True
 
         if self.settings.influxdb['database']:
-            self.client.switch_db(self.settings.influxdb['database'])
+            self.client.switch_database(self.settings.influxdb['database'])
 
         return self.valid
 
@@ -46,7 +54,7 @@ class InfluxdbClient:
         if not name:
             return False
 
-        db_list = self.client.get_database_list()
+        db_list = self.client.get_list_database()
         if not {'name': name} in db_list:
             if self.settings.interactive:
                 create = raw_input("{0} database doesn't exist. Would you want to create it? [y]/n: ".format(name)) or "y"
@@ -60,14 +68,14 @@ class InfluxdbClient:
                 return False
 
         try:
-            self.client.switch_db(name)
+            self.client.switch_database(name)
         except influxdb.client.InfluxDBClientError as e:
             print "Error: could not select database: ", e.message
             return False
 
         # dummy query to test db
         try:
-            res = self.client.query('list series')
+            res = self.client.query('show series')
         except influxdb.client.InfluxDBClientError as e:
             print "Error: could not query database: ", e.message
             return False
@@ -76,7 +84,7 @@ class InfluxdbClient:
 
     def list_db(self):
         assert self.client
-        db_list = self.client.get_database_list()
+        db_list = self.client.get_list_database()
         print "List of existing databases:"
         for db in db_list:
             print "  - {0}".format(db['name'])
@@ -366,6 +374,11 @@ class InfluxdbClient:
 
 if __name__ == "__main__":
     # main used for dev/debug purpose only, use "import"
-    e = InfluxdbClient()
+    class MockSettings:
+        influxdb = parse_handle("root@192.168.1.100:8086/db/munin")
+        influxdb.update({"group_fields": True})
+
+    e = InfluxdbClient(MockSettings())
     e.prompt_setup()
-    e.import_from_xml_folder("/tmp/xml")
+    # e.import_from_xml_folder("/tmp/xml")
+
