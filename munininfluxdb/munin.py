@@ -23,12 +23,15 @@ def discover_from_datafile(settings):
                 continue
             else:
                 line = line.strip()
+
             # ex: acadis.org;tesla:memory.swap.label swap
             domain, tail = line.split(";", 1)
             host, tail = tail.split(":", 1)
             head, value = tail.split(" ", 1)
             plugin_parts = head.split(".")
             plugin, field, property = ".".join(plugin_parts[0:-2]), plugin_parts[-2], plugin_parts[-1]
+            # plugin name kept to allow running the plugin in fetch command
+            plugin_name = plugin_parts[0]
 
             # if plugin.startswith("diskstats"):
             #     print head, plugin_parts, len(plugin_parts), value
@@ -36,9 +39,10 @@ def discover_from_datafile(settings):
             if len(plugin.strip()) == 0:
                 # plugin properties
                 settings.domains[domain].hosts[host].plugins[field].settings[property] = value
+                settings.domains[domain].hosts[host].plugins[field].original_name = plugin_name
             else:
                 # field properties
-                _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field].settings[property] = value
+                settings.domains[domain].hosts[host].plugins[plugin].fields[field].settings[property] = value
 
     # post parsing
     for domain, host, plugin, field in settings.iter_fields():
