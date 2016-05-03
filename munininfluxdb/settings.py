@@ -35,6 +35,7 @@ class Plugin:
 
         # is multigraph
         self.is_multigraph = False
+        self.original_name = ""
 
     def __repr__(self):
         return pprint.pformat(dict(self.fields))

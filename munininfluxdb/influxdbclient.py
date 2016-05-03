@@ -2,6 +2,7 @@ import os
 import getpass
 import json
 from collections import defaultdict
+from pprint import pprint
 
 import influxdb
 try:
@@ -159,6 +160,7 @@ class InfluxdbClient:
 
 
     def upload_single_series(self, name, columns, points):
+        raise DeprecationWarning
         if len(columns) != len(points[0]):
             raise Exception("Cannot insert in {0} series: expected {1} columns (contains {2})".format(name, len(columns), len(points)))
 
@@ -173,6 +175,29 @@ class InfluxdbClient:
         except influxdb.client.InfluxDBClientError as e:
             raise Exception("Cannot insert in {0} series: {1}".format(name, e.message))
 
+    def write_series(self, name, tags, fields, time_and_values):
+        if len(fields) != len(time_and_values[0]):
+            raise Exception("Cannot insert in {0} series: expected {1} columns (contains {2})".format(name, len(fields), len(time_and_values[0])))
+
+        body = []
+        for row in time_and_values:
+            # InfluxDB does not accept null values (nor field-less entries)
+            valid_fields = {field: val for field, val in zip(fields[1:], row[1:]) if val is not None}
+            if valid_fields:
+                body.append({
+                    "measurement": name,
+                    "tags": tags,
+                    "time": row[0],
+                    "fields": valid_fields
+                })
+
+        if body:
+            try:
+                self.client.write_points(body, time_precision='s', batch_size=10)
+            except influxdb.client.InfluxDBClientError as e:
+                raise Exception("Cannot insert in {0} series: {1}".format(name, e.message))
+        else:
+            raise ValueError("Measurement {0} did not contain any non-null value".format(name))
 
     def validate_record(self, name, columns):
         """
@@ -182,16 +207,16 @@ class InfluxdbClient:
         As InfluxDB doesn't store null values we cannot compare length for now
         """
 
-        if name not in self.client.get_list_series():
-            raise Exception("Series \"{0}\" doesn't exist")
+        if not len(self.client.query("SHOW MEASUREMENTS WITH MEASUREMENT={0}".format(name))):
+            raise Exception("Series \"{0}\" doesn't exist".format(name))
 
         for column in columns:
             if column == "time":
                 pass
             else:
                 try:
-                    res = self.client.query("select count({0}) from {1}".format(column, name))
-                    assert res[0]['points'][0][1] >= 0
+                    res = self.client.query("SELECT COUNT({0}) FROM {1}".format(column, name))
+                    assert len(res) >= 0
                 except influxdb.client.InfluxDBClientError as e:
                     raise Exception(e.message)
                 except Exception as e:
@@ -204,22 +229,22 @@ class InfluxdbClient:
         progress_bar = ProgressBar(self.settings.nb_rrd_files*3)  # nb_files * (read + upload + validate)
         errors = []
 
-        def _upload_and_validate(series_name, column_names, packed_values):
+        def _upload_and_validate(name, tags, fields, packed_values):
             try:
-                self.upload_single_series(series_name, column_names, packed_values)
+                self.write_series(name, tags, fields, packed_values)
             except Exception as e:
-                print e
+                # print e
                 errors.append((Symbol.NOK_RED, e.message))
                 return
             finally:
-                progress_bar.update(len(column_names)-1)  # 'time' column ignored
+                progress_bar.update(len(fields)-1)  # 'time' column ignored
 
             try:
-                self.validate_record(series_name, column_names)
+                self.validate_record(name, fields)
             except Exception as e:
-                errors.append((Symbol.WARN_YELLOW, "Validation error in {0}: {1}".format(series_name, e.message)))
+                errors.append((Symbol.WARN_YELLOW, "Validation error in {0}: {1}".format(name, e.message)))
             finally:
-                progress_bar.update(len(column_names)-1)  # 'time' column ignored
+                progress_bar.update(len(fields)-1)  # 'time' column ignored
 
         try:
             assert self.client and self.valid
@@ -243,18 +268,27 @@ class InfluxdbClient:
                 +----------------------+-------+----------+----------+-----------+
             """
             for domain, host, plugin in self.settings.iter_plugins():
-                _plugin = self.settings.domains[domain].hosts[host].plugins[plugin]
-                series_name = ".".join([domain, host, plugin])
 
-                column_names = ['time']
+                _plugin = self.settings.domains[domain].hosts[host].plugins[plugin]
+                series_name = plugin # ".".join([domain, host, plugin])
+                tags = {
+                    "domain": domain,
+                    "host": host,
+                    "plugin": plugin
+                }
+                if _plugin.is_multigraph:
+                    tags["is_multigraph"] = True
+                    print host, plugin
+
+                field_names = ['time']
                 values = defaultdict(list)
-                packed_values = []
+                time_and_values = []
 
                 for field in _plugin.fields:
                     _field = _plugin.fields[field]
 
                     if _field.rrd_exported:
-                        column_names.append(field)
+                        field_names.append(field)
                         content = read_xml_file(_field.xml_filename)
                         [values[key].append(value) for key, value in content.items()]
 
@@ -267,9 +301,9 @@ class InfluxdbClient:
                     progress_bar.update()
 
                 # join data with time as first column
-                packed_values.extend([[k]+v for k, v in values.items()])
+                time_and_values.extend([[k]+v for k, v in values.items()])
 
-                _upload_and_validate(series_name, column_names, packed_values)
+                _upload_and_validate(series_name, tags, field_names, time_and_values)
 
         else:  # non grouping
             """
@@ -290,11 +324,15 @@ class InfluxdbClient:
                 _field = self.settings.domains[domain].hosts[host].plugins[plugin].fields[field]
                 if not _field.rrd_exported:
                     continue
-                series_name = ".".join([domain, host, plugin, field])
-
-                column_names = ['time', 'value']
+                series_name = field
+                tags = {
+                    "domain": domain,
+                    "host": host,
+                    "plugin": plugin
+                }
+                field_names = ['time', 'value']
                 values = defaultdict(list)
-                packed_values = []
+                time_and_values = []
 
                 _field.influxdb_series = series_name
                 _field.influxdb_column = 'value'
@@ -305,14 +343,15 @@ class InfluxdbClient:
                 progress_bar.update()
 
                 # join data with time as first column
-                packed_values.extend([[k]+v for k, v in values.items()])
-                _upload_and_validate(series_name, column_names, packed_values)
+                time_and_values.extend([[k]+v for k, v in values.items()])
+                _upload_and_validate(series_name, tags, field_names, time_and_values)
 
         for error in errors:
-            print "  {0} {1}".format(error[0], error[1])
-
+            print "  {} {}".format(error[0], error[1])
 
     def import_from_xml_folder(self, folder):
+        raise DeprecationWarning
+
         # build file list and grouping if necessary
         file_list = os.listdir(folder)
         grouped_files = defaultdict(list)
@@ -380,4 +419,4 @@ if __name__ == "__main__":
 
     e = InfluxdbClient(MockSettings())
     e.prompt_setup()
-    # e.import_from_xml_folder("/tmp/xml")
+    e.import_from_xml_folder("/tmp/xml")
