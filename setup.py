@@ -4,14 +4,14 @@ from setuptools import setup, find_packages
 
 setup(
     name='munin-influxdb',
-    version='0.1',
+    version='1.1',
     description='Munin to InfluxDB/Grafana gateway',
     author='Manuel Vonthron',
     author_email='manuel.vonthron@acadis.org',
     url='http://github.com/manuelvonthron/munin-influxdb',
     license='BSD',
     py_modules=['munininfluxdb'],
-    install_requires=['influxdb>=0.1.12'],
+    install_requires=['influxdb>=2.12.0'],
     long_description=open('README.md').read(),
     packages=find_packages(),
     classifiers=[
