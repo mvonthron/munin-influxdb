@@ -60,7 +60,9 @@ def read_state_file(filename):
     return data['value'], data['spoolfetch']
 
 def main(config_filename=Defaults.FETCH_CONFIG):
-    client = InfluxdbClient(Settings())
+    raise NotImplementedError("fetch command has not been updated for InfluxDB 0.9 and later")
+
+    client = InfluxdbClient()
 
     config = None
     with open(config_filename) as f:
@@ -83,7 +85,7 @@ def main(config_filename=Defaults.FETCH_CONFIG):
 
         data = pack_values(config, values)
         if len(data):
-            client.upload_multiple_series(data)
+            # client.upload_multiple_series(data)
             config['lastupdate'] = max(config['lastupdate'], int(values[1]))
         else:
             print Symbol.NOK_RED, "No data found, is Munin still running?"

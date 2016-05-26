@@ -100,7 +100,7 @@ class InfluxdbClient:
         @param series: specific series or all by default
         @return: dict of series/columns: [{'name': 'series_name', 'columns': ['colA', 'colB']}]
         """
-        res = self.client.query("select * from {0} limit 1".format(series))
+        res = self.client.query("SELECT * FROM \"{0}\" LIMIT 1".format(series))
         for series in res:
             del series['points']
             series['columns'].remove('time')
@@ -144,37 +144,6 @@ class InfluxdbClient:
         group = raw_input("Group multiple fields of the same plugin in the same time series? [y]/n: ") or "y"
         setup['group_fields'] = group in ("y", "Y")
 
-    def upload_multiple_series(self, dict_values):
-        body = [{"name": series,
-                 "columns": data.keys(),
-                 "points": zip(*data.values())
-                }
-                for series, data in dict_values.items()
-        ]
-
-        try:
-            self.client.write_points(body)
-        except influxdb.client.InfluxDBClientError as e:
-            raise Exception("Cannot insert in {0} series: {1}".format(dict_values.keys(), e.message))
-
-
-
-    def upload_single_series(self, name, columns, points):
-        raise DeprecationWarning
-        if len(columns) != len(points[0]):
-            raise Exception("Cannot insert in {0} series: expected {1} columns (contains {2})".format(name, len(columns), len(points)))
-
-        body = [{
-            "name": name,
-            "columns": columns,
-            "points": points,
-        }]
-
-        try:
-            self.client.write_points(body)
-        except influxdb.client.InfluxDBClientError as e:
-            raise Exception("Cannot insert in {0} series: {1}".format(name, e.message))
-
     def write_series(self, name, tags, fields, time_and_values):
         if len(fields) != len(time_and_values[0]):
             raise Exception("Cannot insert in {0} series: expected {1} columns (contains {2})".format(name, len(fields), len(time_and_values[0])))
@@ -193,13 +162,13 @@ class InfluxdbClient:
 
         if body:
             try:
-                self.client.write_points(body, time_precision='s', batch_size=10)
+                self.client.write_points(body, time_precision='s')
             except influxdb.client.InfluxDBClientError as e:
                 raise Exception("Cannot insert in {0} series: {1}".format(name, e.message))
         else:
             raise ValueError("Measurement {0} did not contain any non-null value".format(name))
 
-    def validate_record(self, name, columns):
+    def validate_record(self, name, fields):
         """
         Performs brief validation of the record made: checks that the named series exists
         contains the specified columns
@@ -207,20 +176,20 @@ class InfluxdbClient:
         As InfluxDB doesn't store null values we cannot compare length for now
         """
 
-        if not len(self.client.query("SHOW MEASUREMENTS WITH MEASUREMENT={0}".format(name))):
-            raise Exception("Series \"{0}\" doesn't exist".format(name))
+        if not len(self.client.query("SHOW MEASUREMENTS WITH MEASUREMENT=\"{0}\"".format(name))):
+            raise Exception("Measurement \"{0}\" doesn't exist".format(name))
 
-        for column in columns:
-            if column == "time":
+        for field in fields:
+            if field == "time":
                 pass
             else:
                 try:
-                    res = self.client.query("SELECT COUNT({0}) FROM {1}".format(column, name))
+                    res = self.client.query("SELECT COUNT(\"{0}\") FROM \"{1}\"".format(field, name))
                     assert len(res) >= 0
                 except influxdb.client.InfluxDBClientError as e:
                     raise Exception(e.message)
                 except Exception as e:
-                    raise Exception("Column \"{0}\" doesn't exist. (May happen if original data contains only NaN entries)".format(column))
+                    raise Exception("Field \"{}\" in measurement {} doesn't exist. (May happen if original data contains only NaN entries)".format(field, name))
 
         return True
 
@@ -234,7 +203,7 @@ class InfluxdbClient:
                 self.write_series(name, tags, fields, packed_values)
             except Exception as e:
                 # print e
-                errors.append((Symbol.NOK_RED, e.message))
+                errors.append((Symbol.NOK_RED, "Error writing {0} to InfluxDB: {1}".format(name, e.message)))
                 return
             finally:
                 progress_bar.update(len(fields)-1)  # 'time' column ignored
@@ -268,7 +237,6 @@ class InfluxdbClient:
                 +----------------------+-------+----------+----------+-----------+
             """
             for domain, host, plugin in self.settings.iter_plugins():
-
                 _plugin = self.settings.domains[domain].hosts[host].plugins[plugin]
                 series_name = plugin # ".".join([domain, host, plugin])
                 tags = {
@@ -289,13 +257,17 @@ class InfluxdbClient:
 
                     if _field.rrd_exported:
                         field_names.append(field)
-                        content = read_xml_file(_field.xml_filename)
-                        [values[key].append(value) for key, value in content.items()]
+                        try:
+                            content = read_xml_file(_field.xml_filename)
+                        except Exception as e:
+                            errors.append((Symbol.WARN_YELLOW, "Could not read file for {0}: {1}".format(field, e.message)))
+                        else:
+                            [values[key].append(value) for key, value in content.items()]
 
-                        # keep track of influxdb storage info to allow 'fetch'
-                        _field.influxdb_series = series_name
-                        _field.influxdb_column = field
-                        _field.xml_imported = True
+                            # keep track of influxdb storage info to allow 'fetch'
+                            _field.influxdb_series = series_name
+                            _field.influxdb_column = field
+                            _field.xml_imported = True
 
                     # update progress bar [######      ] 42 %
                     progress_bar.update()
