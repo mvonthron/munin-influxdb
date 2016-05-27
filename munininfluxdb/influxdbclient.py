@@ -144,9 +144,9 @@ class InfluxdbClient:
         group = raw_input("Group multiple fields of the same plugin in the same time series? [y]/n: ") or "y"
         setup['group_fields'] = group in ("y", "Y")
 
-    def write_series(self, name, tags, fields, time_and_values):
+    def write_series(self, measurement, tags, fields, time_and_values):
         if len(fields) != len(time_and_values[0]):
-            raise Exception("Cannot insert in {0} series: expected {1} columns (contains {2})".format(name, len(fields), len(time_and_values[0])))
+            raise Exception("Cannot insert in {0} series: expected {1} columns (contains {2})".format(measurement, len(fields), len(time_and_values[0])))
 
         body = []
         for row in time_and_values:
@@ -154,7 +154,7 @@ class InfluxdbClient:
             valid_fields = {field: val for field, val in zip(fields[1:], row[1:]) if val is not None}
             if valid_fields:
                 body.append({
-                    "measurement": name,
+                    "measurement": measurement,
                     "tags": tags,
                     "time": row[0],
                     "fields": valid_fields
@@ -164,9 +164,9 @@ class InfluxdbClient:
             try:
                 self.client.write_points(body, time_precision='s')
             except influxdb.client.InfluxDBClientError as e:
-                raise Exception("Cannot insert in {0} series: {1}".format(name, e.message))
+                raise Exception("Cannot insert in {0} series: {1}".format(measurement, e.message))
         else:
-            raise ValueError("Measurement {0} did not contain any non-null value".format(name))
+            raise ValueError("Measurement {0} did not contain any non-null value".format(measurement))
 
     def validate_record(self, name, fields):
         """
@@ -198,20 +198,20 @@ class InfluxdbClient:
         progress_bar = ProgressBar(self.settings.nb_rrd_files*3)  # nb_files * (read + upload + validate)
         errors = []
 
-        def _upload_and_validate(name, tags, fields, packed_values):
+        def _upload_and_validate(measurement, tags, fields, packed_values):
             try:
-                self.write_series(name, tags, fields, packed_values)
+                self.write_series(measurement, tags, fields, packed_values)
             except Exception as e:
                 # print e
-                errors.append((Symbol.NOK_RED, "Error writing {0} to InfluxDB: {1}".format(name, e.message)))
+                errors.append((Symbol.NOK_RED, "Error writing {0} to InfluxDB: {1}".format(measurement, e.message)))
                 return
             finally:
                 progress_bar.update(len(fields)-1)  # 'time' column ignored
 
             try:
-                self.validate_record(name, fields)
+                self.validate_record(measurement, fields)
             except Exception as e:
-                errors.append((Symbol.WARN_YELLOW, "Validation error in {0}: {1}".format(name, e.message)))
+                errors.append((Symbol.WARN_YELLOW, "Validation error in {0}: {1}".format(measurement, e.message)))
             finally:
                 progress_bar.update(len(fields)-1)  # 'time' column ignored
 
@@ -238,7 +238,7 @@ class InfluxdbClient:
             """
             for domain, host, plugin in self.settings.iter_plugins():
                 _plugin = self.settings.domains[domain].hosts[host].plugins[plugin]
-                series_name = plugin # ".".join([domain, host, plugin])
+                measurement = plugin # ".".join([domain, host, plugin])
                 tags = {
                     "domain": domain,
                     "host": host,
@@ -250,7 +250,7 @@ class InfluxdbClient:
 
                 field_names = ['time']
                 values = defaultdict(list)
-                time_and_values = []
+                values_with_time = []
 
                 for field in _plugin.fields:
                     _field = _plugin.fields[field]
@@ -265,17 +265,17 @@ class InfluxdbClient:
                             [values[key].append(value) for key, value in content.items()]
 
                             # keep track of influxdb storage info to allow 'fetch'
-                            _field.influxdb_series = series_name
-                            _field.influxdb_column = field
+                            _field.influxdb_measurement = measurement
+                            _field.influxdb_field = field
                             _field.xml_imported = True
 
                     # update progress bar [######      ] 42 %
                     progress_bar.update()
 
                 # join data with time as first column
-                time_and_values.extend([[k]+v for k, v in values.items()])
+                values_with_time.extend([[k]+v for k, v in values.items()])
 
-                _upload_and_validate(series_name, tags, field_names, time_and_values)
+                _upload_and_validate(measurement, tags, field_names, values_with_time)
 
         else:  # non grouping
             """
@@ -296,7 +296,7 @@ class InfluxdbClient:
                 _field = self.settings.domains[domain].hosts[host].plugins[plugin].fields[field]
                 if not _field.rrd_exported:
                     continue
-                series_name = field
+                measurement = field
                 tags = {
                     "domain": domain,
                     "host": host,
@@ -304,10 +304,10 @@ class InfluxdbClient:
                 }
                 field_names = ['time', 'value']
                 values = defaultdict(list)
-                time_and_values = []
+                values_with_time = []
 
-                _field.influxdb_series = series_name
-                _field.influxdb_column = 'value'
+                _field.influxdb_measurement = measurement
+                _field.influxdb_field = 'value'
 
                 content = read_xml_file(_field.xml_filename)
                 [values[key].append(value) for key, value in content.items()]
@@ -315,8 +315,8 @@ class InfluxdbClient:
                 progress_bar.update()
 
                 # join data with time as first column
-                time_and_values.extend([[k]+v for k, v in values.items()])
-                _upload_and_validate(series_name, tags, field_names, time_and_values)
+                values_with_time.extend([[k]+v for k, v in values.items()])
+                _upload_and_validate(measurement, tags, field_names, values_with_time)
 
         for error in errors:
             print "  {} {}".format(error[0], error[1])

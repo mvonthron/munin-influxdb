@@ -24,8 +24,8 @@ class Field:
         self.xml_imported = None
 
         # InfluxDB
-        self.influxdb_series = None
-        self.influxdb_column = None
+        self.influxdb_measurement = None
+        self.influxdb_field = None
 
 
 class Plugin:
@@ -108,11 +108,15 @@ class Settings:
                            for host in self.domains[domain].hosts
             ],
             # {rrd_filename: (series, column), ...}
-            "metrics": {get_field(self, f, h, p, field).rrd_filename:
-                                (get_field(self, f, h, p, field).influxdb_series,
-                                 get_field(self, f, h, p, field).influxdb_column)
-                       for f, h, p, field in self.iter_fields()
-                       if get_field(self, f, h, p, field).xml_imported
+            "metrics": {get_field(self, d, h, p, field).rrd_filename:
+                                (get_field(self, d, h, p, field).influxdb_measurement,
+                                 get_field(self, d, h, p, field).influxdb_field)
+                       for d, h, p, field in self.iter_fields()
+                       if get_field(self, d, h, p, field).xml_imported
+            },
+            "tags": {get_field(self, d, h, p, field).influxdb_measurement: {"domain": d, "host": h,"plugin": p}
+                       for d, h, p, field in self.iter_fields()
+                       if get_field(self, d, h, p, field).xml_imported
             },
             "lastupdate": None
         }

@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 import pwd
 import json
+import sys
 import argparse
 from collections import defaultdict
 
 from munininfluxdb.utils import Symbol
 from munininfluxdb.settings import Defaults
-from munininfluxdb.influxdbclient import InfluxdbClient
+
+import influxdb
 
 try:
     import storable
@@ -25,14 +27,14 @@ else:
 CRON_COMMENT = 'Update InfluxDB with fresh values from Munin'
 
 def pack_values(config, values):
-    suffix = ":{0}".format(Defaults.MUNIN_RRD_FOLDER)
+    suffix = ":{0}".format(Defaults.DEFAULT_RRD_INDEX)
     metrics, date = values
     date = int(date)
 
     data = defaultdict(dict)
-    for metric in metrics:
 
-        (last_date, last_value), (previous_date, previous_value) = metrics[metric].values()
+    for metric in metrics:
+        (latest_date, latest_value), (previous_date, previous_value) = metrics[metric].values()
 
         # usually stored as rrd-filename:42 with 42 being a constant column name for RRD files
         if metric.endswith(suffix):
@@ -41,18 +43,22 @@ def pack_values(config, values):
             name = metric
 
         if name in config['metrics']:
-            series, column = config['metrics'][name]
+            measurement, field = config['metrics'][name]
 
-            data[series]['time'] = [float(last_date)]
-            data[series][column] = [float(last_value) if last_value != 'U' else None]   # 'U' is Munin value for unknown
+            data[measurement]['time'] = int(latest_date)
+            data[measurement][field] = float(latest_value) if latest_value != 'U' else None   # 'U' is Munin value for unknown
         else:
-            age = (date - int(last_date)) // (24*3600)
+            age = (date - int(latest_date)) // (24*3600)
             if age < 7:
-                print "{0} Not found series {1} (updated {2} days ago)".format(Symbol.WARN_YELLOW, name, age)
+                print "{0} Not found measurement {1} (updated {2} days ago)".format(Symbol.WARN_YELLOW, name, age)
             # otherwise very probably a removed plugin, no problem
 
-    return data
-
+    return [{
+            "measurement": measurement,
+            "tags": config['tags'][measurement],
+            "time": fields['time'],
+            "fields": {key: value for key, value in fields.iteritems() if key != 'time'}
+        } for measurement, fields in data.iteritems()]
 
 def read_state_file(filename):
     data = storable.retrieve(filename)
@@ -60,18 +66,24 @@ def read_state_file(filename):
     return data['value'], data['spoolfetch']
 
 def main(config_filename=Defaults.FETCH_CONFIG):
-    raise NotImplementedError("fetch command has not been updated for InfluxDB 0.9 and later")
-
-    client = InfluxdbClient()
-
     config = None
     with open(config_filename) as f:
         config = json.load(f)
         print "{0} Opened configuration: {1}".format(Symbol.OK_GREEN, f.name)
     assert config
 
-    client.settings.influxdb.update(config['influxdb'])
-    assert client.connect()
+    client = influxdb.InfluxDBClient(config['influxdb']['host'],
+                                     config['influxdb']['port'],
+                                     config['influxdb']['user'],
+                                     config['influxdb']['password']
+                                     )
+    try:
+        client.get_list_database()
+    except influxdb.client.InfluxDBClientError as e:
+        print "  {0} Could not connect to database: {1}".format(Symbol.WARN_YELLOW, e.message)
+        sys.exit(1)
+    else:
+        client.switch_database(config['influxdb']['database'])
 
     for statefile in config['statefiles']:
         try:
@@ -85,7 +97,8 @@ def main(config_filename=Defaults.FETCH_CONFIG):
 
         data = pack_values(config, values)
         if len(data):
-            # client.upload_multiple_series(data)
+            # print data
+            client.write_points(data, time_precision='s')
             config['lastupdate'] = max(config['lastupdate'], int(values[1]))
         else:
             print Symbol.NOK_RED, "No data found, is Munin still running?"
