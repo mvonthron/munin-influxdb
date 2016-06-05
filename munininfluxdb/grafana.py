@@ -3,23 +3,26 @@ from utils import ProgressBar
 from pprint import pprint
 from settings import Settings
 
+import requests
+
 class Query:
     DEFAULT_FUNC = "mean"
 
-    def __init__(self, series, column):
+    def __init__(self, measurement, field):
         self.func = Query.DEFAULT_FUNC
-        self.series = series
-        self.column = column
-        self.alias = self.column
+        self.measurement = measurement
+        self.field = field
+        self.alias = self.field
 
     def to_json(self, settings):
         return {
+            "dsType": "influxdb",
             "function": self.func,
-            "column": self.column,
-            "series": self.series,
+            "column": self.field,
+            "series": self.measurement,
             "query": "select {0}({1}) from \"{2}\" where $timeFilter group by time($interval) order asc".format(self.func,
-                                                                                                                self.column,
-                                                                                                                self.series),
+                                                                                                                self.field,
+                                                                                                                self.measurement),
             "rawQuery": False,
             "alias": self.alias,
         }
@@ -306,6 +309,39 @@ necessary:
                     panel.process_graph_thresholds(_plugin.fields)
                     panel.process_graph_types(_plugin.fields)
 
+
+class GrafanaApi:
+    def __init__(self):
+        # OAuth2 tokens not yet supported
+        self.auth = ('admin', 'admin')
+        self.url = "http://192.168.1.100:3000"
+
+    def searchDatasource(self):
+        r = requests.get(self.url + "/api/datasources", auth=self.auth)
+
+    def createDatasource(self):
+        body = {
+            "name": "InfluxDB",
+            "type": "influxdb",
+            "url": "http://192.168.1.100:8086",
+            "database": "munin",
+            "access": "direct",
+            # "user": "root",
+            # "password": "root",
+            "basicAuth": False
+        }
+        r = requests.post(self.url + "/api/datasources", json=body, auth=self.auth)
+        return r.ok
+
+    def createDashboard(self, dashboardJson):
+        r = requests.post(self.url + "/api/dashboards/db", json=dashboardJson, auth=self.auth)
+        if r.ok:
+            return "".join([self.url, "/dashboards/db", r.json()['slug']])
+        else:
+            print r.json()
+            r.raise_for_status()
+
+
 if __name__ == "__main__":
     # main for dev/debug purpose only
     """
@@ -335,9 +371,9 @@ if __name__ == "__main__":
         json.dump(dashboard.to_json(), f, indent=2, separators=(',', ': '))
     """
 
-    with open("../data/config.json") as f:
-        conf = json.load(f)
-
-    dashboard = Dashboard("Munin dashboard")
-    dashboard.generate(conf)
-    print json.dumps(dashboard.to_json(),indent=2, separators=(',', ': '))
+    # with open("../data/config.json") as f:
+    #     conf = json.load(f)
+    #
+    # dashboard = Dashboard("Munin dashboard")
+    # dashboard.generate(conf)
+    # print json.dumps(dashboard.to_json(),indent=2, separators=(',', ': '))
