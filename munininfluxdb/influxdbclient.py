@@ -238,7 +238,7 @@ class InfluxdbClient:
             """
             for domain, host, plugin in self.settings.iter_plugins():
                 _plugin = self.settings.domains[domain].hosts[host].plugins[plugin]
-                measurement = plugin # ".".join([domain, host, plugin])
+                measurement = plugin
                 tags = {
                     "domain": domain,
                     "host": host,
