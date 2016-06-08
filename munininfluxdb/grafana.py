@@ -17,20 +17,23 @@ class Query:
     def to_json(self, settings):
         return {
             "dsType": "influxdb",
-            "function": self.func,
-            "column": self.field,
-            "series": self.measurement,
-            "query": "select {0}({1}) from \"{2}\" where $timeFilter group by time($interval) order asc".format(self.func,
-                                                                                                                self.field,
-                                                                                                                self.measurement),
-            "rawQuery": False,
-            "alias": self.alias,
+            "measurement": self.measurement,
+            "select": [[
+                {"params": [self.field], "type": "field"},
+                {"params": [], "type": self.func}
+            ]],
+            "groupBy": [
+                {"params": ["$interval"], "type": "time"},
+                {"params": ["null"], "type": "fill"}
+            ],
+            "resultFormat": "time_series",
+            "alias": self.alias
         }
 
 class Panel:
-    def __init__(self, title="", series=None):
+    def __init__(self, title="", measurement=None):
         self.title = title
-        self.series = series
+        self.measurement = measurement
         self.queries = []
         self.fill = 0
         self.stack = False
@@ -41,14 +44,14 @@ class Panel:
         self.width = 6
         self.linewidth = 1
 
-    def add_query(self, column):
-        query = Query(self.series, column)
+    def add_query(self, field):
+        query = Query(self.measurement, field)
         self.queries.append(query)
         return query
 
     def sort_queries(self, order):
         ordered_keys = order.split()
-        self.queries.sort(key=lambda x: ordered_keys.index(x.column) if x.column in ordered_keys else len(self.queries))
+        self.queries.sort(key=lambda x: ordered_keys.index(x.field) if x.field in ordered_keys else len(self.queries))
 
     def process_graph_settings(self, plugin_settings):
         if "graph_vlabel" in plugin_settings:
@@ -149,6 +152,13 @@ class Panel:
                 "alignAsTable": settings.grafana['show_minmax'],
                 "rightSide": False
             },
+            "xaxis": {
+                "show": True
+            },
+            "yaxes":[
+                {"format": "short", "label": None, "logBase": 1},
+                {"format": "short", "label": None, "logBase": 1}
+            ],
             "grid": self.thresholds,
             "seriesOverrides": self.overrides,
             "aliasColors": self.alias_colors,
@@ -160,7 +170,7 @@ class HeaderPanel(Panel):
     def __init__(self, title):
         self.title = title
         self.content = ""
-        self.series = None
+        self.measurement = None
 
     def to_json(self, _):
         return {
@@ -189,7 +199,7 @@ class Row:
         return p
 
     def to_json(self, settings):
-        self.panels.sort(key=lambda x: x.series)
+        self.panels.sort(key=lambda x: x.measurement)
         return {
             "title": self.title,
             "height": self.height,
@@ -226,17 +236,6 @@ class Dashboard:
 <p>Thanks for using Munin-InfluxDB and the Grafana generator.</p>
 
 <ul>
-<li>Don't forget to add the new database provider in Grafana's <code>config.js</code> if
-necessary:
-<pre>
-    "{database}": {{
-        "type": "influxdb"
-        "url": "http://{host}:{port}/db/{database}",
-        "username": "{user}",
-        "password": "********",
-    }}
-</pre>
-</li>
 <li>Edit the panels so they match your desires by clicking on their titles</li>
 <li>You can remove this header through the green menu button on the top right corner of this panel</li>
 <li>Feel free to post your suggestions on the GitHub page</li>
@@ -257,6 +256,7 @@ necessary:
             "title": self.title,
             "tags": self.tags,
             "rows": [row.to_json(settings) for row in self.rows],
+            "timezone": "browser",
             "time": {"from": "now-5d", "to": "now"},
         }
 
@@ -267,6 +267,10 @@ necessary:
         with open(filename, "w") as f:
             json.dump(self.to_json(self.settings), f)
 
+    def upload(self):
+        api = GrafanaApi()
+        api.createDatasource(self.settings.influxdb['database'], self.settings.influxdb['database'])
+        return api.createDashboard(self.to_json(self.settings))
 
     @staticmethod
     def generate_simple(title, structure):
@@ -280,11 +284,10 @@ necessary:
             row = dashboard.add_row()
             panel = row.add_panel(series['name'].split(".")[-1], series['name'])
 
-            for col in series['columns']:
+            for col in series['fields']:
                 panel.add_query(col)
 
         return dashboard
-
 
     def generate(self):
         progress_bar = ProgressBar(self.settings.nb_rrd_files)
@@ -296,7 +299,7 @@ necessary:
                 row = self.add_row("{0} / {1}".format(domain, host))
                 for plugin in self.settings.domains[domain].hosts[host].plugins:
                     _plugin = self.settings.domains[domain].hosts[host].plugins[plugin]
-                    panel = row.add_panel(_plugin.settings["graph_title"] or plugin, ".".join([domain, host, plugin]))
+                    panel = row.add_panel(_plugin.settings["graph_title"] or plugin, plugin)
 
                     for field in _plugin.fields:
                         query = panel.add_query(field)
@@ -319,12 +322,12 @@ class GrafanaApi:
     def searchDatasource(self):
         r = requests.get(self.url + "/api/datasources", auth=self.auth)
 
-    def createDatasource(self):
+    def createDatasource(self, name, dbname):
         body = {
-            "name": "InfluxDB",
+            "name": name,
             "type": "influxdb",
             "url": "http://192.168.1.100:8086",
-            "database": "munin",
+            "database": dbname,
             "access": "direct",
             # "user": "root",
             # "password": "root",
@@ -334,7 +337,7 @@ class GrafanaApi:
         return r.ok
 
     def createDashboard(self, dashboardJson):
-        r = requests.post(self.url + "/api/dashboards/db", json=dashboardJson, auth=self.auth)
+        r = requests.post(self.url + "/api/dashboards/db", json={"dashboard": dashboardJson}, auth=self.auth)
         if r.ok:
             return "".join([self.url, "/dashboards/db", r.json()['slug']])
         else:
@@ -344,7 +347,7 @@ class GrafanaApi:
 
 if __name__ == "__main__":
     # main for dev/debug purpose only
-    """
+
     dashboard = Dashboard("Munin")
     dashboard.tags.append("munin")
     dashboard.datasource = "munin"
@@ -369,7 +372,7 @@ if __name__ == "__main__":
     dashboard = Dashboard.generate_simple("Munin", client.list_columns())
     with open("/tmp/munin-grafana.json", "w") as f:
         json.dump(dashboard.to_json(), f, indent=2, separators=(',', ': '))
-    """
+
 
     # with open("../data/config.json") as f:
     #     conf = json.load(f)
