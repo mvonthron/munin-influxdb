@@ -88,13 +88,21 @@ def main(args):
 
         dashboard.generate()
 
-        try:
-            dashboard.save()
-        except Exception as e:
-            print "{0} Could not write Grafana dashboard: {1}".format(Symbol.NOK_RED, e.message)
-        else:
-            print "{0} A Grafana dashboard has been successfully generated to {1}".format(Symbol.OK_GREEN,
-                                                                                          settings.grafana['filename'])
+        if settings.grafana['host']:
+            try:
+                dash_url = dashboard.upload()
+            except Exception as e:
+                print "{0} Didn't quite work uploading: {1}".format(Symbol.NOK_RED, e.message)
+            else:
+                print "{0} A Grafana dashboard has been successfully uploaded to {1}".format(Symbol.OK_GREEN, dash_url)
+
+        if settings.grafana['filename']:
+            try:
+                dashboard.save()
+            except Exception as e:
+                print "{0} Could not write Grafana dashboard: {1}".format(Symbol.NOK_RED, e.message)
+            else:
+                print "{0} A Grafana dashboard has been successfully generated to {1}".format(Symbol.OK_GREEN, settings.grafana['filename'])
     else:
         print "Then we're good! Have a nice day!"
 

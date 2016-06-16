@@ -16,8 +16,6 @@ from utils import ProgressBar, parse_handle, Color, Symbol
 from rrd import read_xml_file
 from settings import Settings
 
-
-
 class InfluxdbClient:
     def __init__(self, settings):
         self.client = None

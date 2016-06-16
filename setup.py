@@ -11,7 +11,7 @@ setup(
     url='http://github.com/manuelvonthron/munin-influxdb',
     license='BSD',
     py_modules=['munininfluxdb'],
-    install_requires=['influxdb>=2.12.0'],
+    install_requires=['influxdb>=2.12.0', 'requests'],
     long_description=open('README.md').read(),
     packages=find_packages(),
     classifiers=[
