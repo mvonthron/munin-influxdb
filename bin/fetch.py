@@ -98,8 +98,13 @@ def main(config_filename=Defaults.FETCH_CONFIG):
         data = pack_values(config, values)
         if len(data):
             # print data
-            client.write_points(data, time_precision='s')
-            config['lastupdate'] = max(config['lastupdate'], int(values[1]))
+            try:
+                client.write_points(data, time_precision='s')
+            except influxdb.client.InfluxDBClientError as e:
+                print "  {0} Could not write data to database: {1}".format(Symbol.WARN_YELLOW, e.message)
+            else:
+                config['lastupdate'] = max(config['lastupdate'], int(values[1]))
+                print "{0} Successfully written {1} new measurements".format(Symbol.OK_GREEN, len(data))
         else:
             print Symbol.NOK_RED, "No data found, is Munin still running?"
 

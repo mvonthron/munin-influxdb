@@ -1,7 +1,10 @@
 import json
-from utils import ProgressBar
+import urlparse
+
+from utils import ProgressBar, Color, Symbol
 from pprint import pprint
 from settings import Settings
+from influxdbclient import InfluxdbClient
 
 import requests
 
@@ -216,10 +219,28 @@ class Dashboard:
 
     def prompt_setup(self):
         setup = self.settings.grafana
+        print "\nGrafana: Please enter your connection information"
+        setup['host'] = raw_input("  - host [http://localhost:3000]: ").strip() or "http://localhost:3000"
+        setup['auth'] = None
+        setup['filename'] = None
+
+        while not GrafanaApi.test_host(setup['host']) and not setup['filename']:
+            print "\n{0}We couldn't connect to {1}, please try again or leave empty to save to a local file{2}".format(Symbol.WARN_YELLOW, setup['host'], Color.CLEAR)
+            setup['host'] = raw_input("  - host: ").strip() or ""
+            if not setup['host']:
+                setup['filename'] = raw_input("  - local file [/tmp/munin-grafana.json]: ").strip() or "/tmp/munin-grafana.json"
+
+        if GrafanaApi.test_host(setup['host']):
+            while not GrafanaApi.test_auth(setup['host'], setup['auth']):
+                user = raw_input("  - user [admin]: ").strip() or "admin"
+                password = InfluxdbClient.ask_password()
+                setup['auth'] = (user, password)
+
+            setup['access'] = None
+            while setup['access'] not in ("proxy", "direct"):
+                setup['access'] = raw_input("  - data source access [proxy]/direct: ").strip() or "proxy"
 
         self.title = raw_input("  Dashboard title [{0}]: ".format(self.title)).strip() or self.title
-        setup['filename'] = raw_input("  Dashboard file destination [/tmp/munin-grafana.json]: ").strip() or "/tmp/munin-grafana.json"
-
         graph_per_row = raw_input("  Number of graphs per row [2]: ").strip() or "2"
         setup['graph_per_row'] = int(graph_per_row)
 
@@ -238,6 +259,7 @@ class Dashboard:
 <ul>
 <li>Edit the panels so they match your desires by clicking on their titles</li>
 <li>You can remove this header through the green menu button on the top right corner of this panel</li>
+<li>If all your panels show an "InfluxDB Error" sign, please check the datasource settings (here in Grafana)</li>
 <li>Feel free to post your suggestions on the GitHub page</li>
 </ul>
 '''
@@ -268,9 +290,9 @@ class Dashboard:
             json.dump(self.to_json(self.settings), f)
 
     def upload(self):
-        api = GrafanaApi()
-        api.createDatasource(self.settings.influxdb['database'], self.settings.influxdb['database'])
-        return api.createDashboard(self.to_json(self.settings))
+        api = GrafanaApi(self.settings)
+        api.create_datasource(self.settings.influxdb['database'], self.settings.influxdb['database'])
+        return api.create_dashboard(self.to_json(self.settings))
 
     @staticmethod
     def generate_simple(title, structure):
@@ -314,32 +336,41 @@ class Dashboard:
 
 
 class GrafanaApi:
-    def __init__(self):
+    def __init__(self, config):
         # OAuth2 tokens not yet supported
-        self.auth = ('admin', 'admin')
-        self.url = "http://192.168.1.100:3000"
+        self.auth = config.grafana['auth']
+        self.host = config.grafana['host'].rstrip('/')
+        self.config = config
 
-    def searchDatasource(self):
-        r = requests.get(self.url + "/api/datasources", auth=self.auth)
+    @staticmethod
+    def test_host(host):
+        # should return "unauthorized"
+        r = requests.get(host.rstrip("/") + "/api/org")
+        return r.status_code == 401
 
-    def createDatasource(self, name, dbname):
+    @staticmethod
+    def test_auth(host, auth):
+        r = requests.get(host.rstrip("/") + "/api/org", auth=auth)
+        return r.status_code == 200
+
+    def create_datasource(self, name, dbname):
         body = {
             "name": name,
-            "type": "influxdb",
-            "url": "http://192.168.1.100:8086",
             "database": dbname,
-            "access": "direct",
-            # "user": "root",
-            # "password": "root",
+            "type": "influxdb",
+            "url": "http://{0}:{1}".format(self.config.influxdb['host'].rstrip("/"), self.config.influxdb['port']),
+            "user": self.config.influxdb['user'],
+            "password": self.config.influxdb['password'],
+            "access": self.config.grafana['access'],
             "basicAuth": False
         }
-        r = requests.post(self.url + "/api/datasources", json=body, auth=self.auth)
+        r = requests.post(self.host + "/api/datasources", json=body, auth=self.auth)
         return r.ok
 
-    def createDashboard(self, dashboardJson):
-        r = requests.post(self.url + "/api/dashboards/db", json={"dashboard": dashboardJson}, auth=self.auth)
+    def create_dashboard(self, dashboardJson):
+        r = requests.post(self.host + "/api/dashboards/db", json={"dashboard": dashboardJson}, auth=self.auth)
         if r.ok:
-            return "".join([self.url, "/dashboards/db", r.json()['slug']])
+            return "".join([self.host, "/dashboard/db/", r.json()['slug']])
         else:
             print r.json()
             r.raise_for_status()

@@ -5,7 +5,7 @@ Munin-influxdb
 
 Tool to migrate smoothly from Munin (RRD) to InfluxDB and Grafana dashboards.
 
-Contains (*err, will contain*) two parts:
+Provide two commands:
 
   * **import** 
     * Import existing Munin data to [InfluxDB](http://influxdb.com) (groups fields in the same series by default). *Status: done*
@@ -18,7 +18,7 @@ Contains (*err, will contain*) two parts:
 
 ### InfluxDB storage
 
-Data from Munin RRD databases are combined and imported into an InfluxDB cluster.
+Data from Munin RRD databases are combined and imported into an InfluxDB cluster (version 0.9 and later).
 
 Munin fields from a same plugin are grouped as columns of the same InfluxDB time series.
 
@@ -63,6 +63,17 @@ Very simple!
   
 4. A cron job will be automatically added after installation to refresh data from munin every 5 minutes (Munin default)
 
+### Some more details
+
+* About importing current data
+
+* About fetching new data
+ 
+Fresh data is not obtain from the RRD databases but from Munin's _storable_ files. This is a ![Perl specific format](http://perldoc.perl.org/Storable.html)
+where Munin stores the two latest values for each metric.
+
+// example of storable content
+
 Licensing
 ---------
 
@@ -70,4 +81,4 @@ This program and its documentation are released under the terms of the
 BSD license.
 
 ----
-2014, Manuel Vonthron <manuel.vonthron@acadis.org>
+2016, Manuel Vonthron <manuel.vonthron@acadis.org>

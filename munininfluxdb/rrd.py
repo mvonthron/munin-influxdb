@@ -153,7 +153,7 @@ def discover_from_rrd(settings, insert_missing=True, print_missing=False):
             parts = os.path.splitext(filename)[0].split('-')
             length = len(parts)
 
-            if(length < 4):
+            if length < 4:
                 print "Error:", filename, parts, length
                 continue
 
