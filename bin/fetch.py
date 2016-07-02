@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import pwd
 import json
+import os
 import sys
 import argparse
 from collections import defaultdict
@@ -14,7 +15,6 @@ try:
     import storable
 except ImportError:
     from vendor import storable
-
 
 try:
     pwd.getpwnam('munin')
@@ -113,6 +113,10 @@ def main(config_filename=Defaults.FETCH_CONFIG):
         print "{0} Updated configuration: {1}".format(Symbol.OK_GREEN, f.name)
 
 def uninstall_cron():
+    if os.geteuid() != 0:
+        print "It seems you are not root, please run \"./muninflux fetch --uninstall-cron\" again with root privileges".format(sys.argv[0])
+        sys.exit(1)
+
     try:
         import crontab
     except ImportError:
@@ -126,6 +130,10 @@ def uninstall_cron():
     return len(jobs)
 
 def install_cron(script_file, period):
+    if os.geteuid() != 0:
+        print "It seems you are not root, please run \"./muninflux fetch --install-cron\" again with root privileges".format(sys.argv[0])
+        sys.exit(1)
+
     try:
         import crontab
     except ImportError:
@@ -152,7 +160,7 @@ if __name__ == "__main__":
     cronargs.add_argument('--install-cron', dest='script_path',
                         help='install a cron job to updated InfluxDB with fresh data from Munin every <period> minutes')
     cronargs.add_argument('-p', '--period', default=5, type=int,
-                        help="sets the period in minutes between each fetch in the cron job (default: %(default)s)")
+                        help="sets the period in minutes between each fetch in the cron job (default: %(default)min)")
     cronargs.add_argument('--uninstall-cron', action='store_true',
                         help='uninstall the fetch cron job (any matching the initial comment actually)')
     args = parser.parse_args()

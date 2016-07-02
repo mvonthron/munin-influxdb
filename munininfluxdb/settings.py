@@ -2,6 +2,7 @@ from collections import defaultdict
 import os
 import pprint
 import json
+from os.path import expanduser
 
 from utils import parse_handle
 
@@ -64,7 +65,7 @@ class Defaults:
     MUNIN_DATAFILE = "/var/lib/munin/datafile"
 
     TEMP_FOLDER = "/tmp/munin-influxdb"
-    FETCH_CONFIG = TEMP_FOLDER+"/munin-fetch-config.json"
+    FETCH_CONFIG = expanduser("~")+"/.config/munin-fetch-config.json"
     MUNIN_XML_FOLDER = TEMP_FOLDER+"/xml"
 
     DEFAULT_RRD_INDEX = 42
