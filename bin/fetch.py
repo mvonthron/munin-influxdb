@@ -114,7 +114,7 @@ def main(config_filename=Defaults.FETCH_CONFIG):
 
 def uninstall_cron():
     if os.geteuid() != 0:
-        print "It seems you are not root, please run \"./muninflux fetch --uninstall-cron\" again with root privileges".format(sys.argv[0])
+        print "It seems you are not root, please run \"muninflux fetch --uninstall-cron\" again with root privileges".format(sys.argv[0])
         sys.exit(1)
 
     try:
@@ -131,7 +131,7 @@ def uninstall_cron():
 
 def install_cron(script_file, period):
     if os.geteuid() != 0:
-        print "It seems you are not root, please run \"./muninflux fetch --install-cron\" again with root privileges".format(sys.argv[0])
+        print "It seems you are not root, please run \"muninflux fetch --install-cron\" again with root privileges".format(sys.argv[0])
         sys.exit(1)
 
     try:
