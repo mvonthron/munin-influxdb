@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='munin-influxdb',
-    version='1.2.1',
+    version='1.2.2',
     description='Munin to InfluxDB/Grafana gateway',
     author='Manuel Vonthron',
     author_email='manuel.vonthron@acadis.org',

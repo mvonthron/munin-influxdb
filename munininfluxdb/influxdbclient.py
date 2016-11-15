@@ -7,7 +7,7 @@ from pprint import pprint
 import influxdb
 try:
     # poor man's check
-    assert influxdb.__version__.startswith('2')
+    assert influxdb.__version__[0] not in ('0', '1')
 except (AssertionError, AttributeError) as e:
     raise ImportError("InfluxDB API is too old, please update (e.g: pip install influxdb --upgrade)")
 
@@ -390,4 +390,3 @@ if __name__ == "__main__":
     e = InfluxdbClient(MockSettings())
     e.prompt_setup()
     # e.import_from_xml_folder("/tmp/xml")
-
