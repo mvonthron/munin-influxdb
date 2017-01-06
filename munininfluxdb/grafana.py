@@ -87,14 +87,14 @@ class Panel:
         if criticals:
             val = criticals.pop().split(":")
             if val[-1]:
-                self.thresholds["threshold2"] = int(val[-1])
+                self.thresholds["threshold2"] = float(val[-1])
             # critical doesn't show up if warning is not set to something
             self.thresholds["threshold1"] = self.thresholds["threshold2"]
 
         if warnings:
             val = warnings.pop().split(":")
             if val[-1]:
-                self.thresholds["threshold1"] = int(val[-1])
+                self.thresholds["threshold1"] = float(val[-1])
 
 
     def process_graph_types(self, fields):
