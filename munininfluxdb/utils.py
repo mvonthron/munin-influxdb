@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import print_function
 import sys
 
 
@@ -45,7 +45,7 @@ class ProgressBar():
         sys.stdout.write("\r{0}: [{3}{1}{4}] {2}%".format(self.title, hashes + spaces, int(round(percent * 100)), Color.GREEN, Color.CLEAR))
         sys.stdout.flush()
         if percent >= 1:
-            print ""
+            print("")
 
 
 def parse_handle(handle):

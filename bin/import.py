@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 import argparse
 import sys
@@ -14,42 +15,42 @@ from munininfluxdb.utils import Color, Symbol
 def retrieve_munin_configuration(settings):
     """
     """
-    print "Exploring Munin structure"
+    print("Exploring Munin structure")
 
     try:
         settings = munin.discover_from_datafile(settings)
     except Exception as e:
-        print "  {0} Could not process datafile ({1}), will read www and RRD cache instead".format(Symbol.NOK_RED, settings.paths['datafile'])
+        print("  {0} Could not process datafile ({1}), will read www and RRD cache instead".format(Symbol.NOK_RED, settings.paths['datafile']))
 
         # read /var/cache/munin/www to check what's currently displayed on the dashboard
         settings = munin.discover_from_www(settings)
         settings = rrd.discover_from_rrd(settings, insert_missing=False)
     else:
-        print "  {0} Found {1}: extracted {2} measurement units".format(Symbol.OK_GREEN, settings.paths['datafile'],
-                                                                        settings.nb_fields)
+        print("  {0} Found {1}: extracted {2} measurement units".format(Symbol.OK_GREEN, settings.paths['datafile'],
+                                                                        settings.nb_fields))
 
     # for each host, find the /var/lib/munin/<host> directory and check if node name and plugin conf match RRD files
     try:
         rrd.check_rrd_files(settings)
     except Exception as e:
-        print "  {0} {1}".format(Symbol.NOK_RED, e.message)
+        print("  {0} {1}".format(Symbol.NOK_RED, e.message))
     else:
-        print "  {0} Found {1} RRD files".format(Symbol.OK_GREEN, settings.nb_rrd_files)
+        print("  {0} Found {1} RRD files".format(Symbol.OK_GREEN, settings.nb_rrd_files))
 
     return settings
 
 
 def main(args):
-    print "{0}Munin to InfluxDB migration tool{1}".format(Color.BOLD, Color.CLEAR)
-    print "-" * 20
+    print("{0}Munin to InfluxDB migration tool{1}".format(Color.BOLD, Color.CLEAR))
+    print("-" * 20)
 
     settings = Settings(args)
     settings = retrieve_munin_configuration(settings)
 
     # export RRD files as XML for (much) easier parsing (but takes much more time)
-    print "\nExporting RRD databases:".format(settings.nb_rrd_files)
+    print("\nExporting RRD databases:".format(settings.nb_rrd_files))
     nb_xml = rrd.export_to_xml(settings)
-    print "  {0} Exported {1} RRD files to XML ({2})".format(Symbol.OK_GREEN, nb_xml, settings.paths['xml'])
+    print("  {0} Exported {1} RRD files to XML ({2})".format(Symbol.OK_GREEN, nb_xml, settings.paths['xml']))
 
     #reads every XML file and export as in the InfluxDB database
     exporter = InfluxdbClient(settings)
@@ -65,17 +66,17 @@ def main(args):
     exporter.import_from_xml()
 
     settings = exporter.get_settings()
-    print "{0} Munin data successfully imported to {1}/db/{2}".format(Symbol.OK_GREEN, settings.influxdb['host'],
-                                                                      settings.influxdb['database'])
+    print("{0} Munin data successfully imported to {1}/db/{2}".format(Symbol.OK_GREEN, settings.influxdb['host'],
+                                                                      settings.influxdb['database']))
 
     settings.save_fetch_config()
-    print "{0} Configuration for 'munin-influxdb fetch' exported to {1}".format(Symbol.OK_GREEN,
-                                                                                settings.paths['fetch_config'])
+    print("{0} Configuration for 'munin-influxdb fetch' exported to {1}".format(Symbol.OK_GREEN,
+                                                                                settings.paths['fetch_config']))
 
     # Generate a JSON file to be uploaded to Grafana
-    print "\n{0}Grafaba dashboard{1}".format(Color.BOLD, Color.CLEAR)
+    print("\n{0}Grafaba dashboard{1}".format(Color.BOLD, Color.CLEAR))
     if not settings.influxdb['group_fields'] and settings.grafana['create']:
-        print Symbol.NOK_RED, "Grafana dashboard generation is only supported in grouped fields mode."
+        print("%s Grafana dashboard generation is only supported in grouped fields mode.", Symbol.NOK_RED)
         return
 
     if settings.interactive:
@@ -92,19 +93,19 @@ def main(args):
             try:
                 dash_url = dashboard.upload()
             except Exception as e:
-                print "{0} Didn't quite work uploading: {1}".format(Symbol.NOK_RED, e.message)
+                print("{0} Didn't quite work uploading: {1}".format(Symbol.NOK_RED, e.message))
             else:
-                print "{0} A Grafana dashboard has been successfully uploaded to {1}".format(Symbol.OK_GREEN, dash_url)
+                print("{0} A Grafana dashboard has been successfully uploaded to {1}".format(Symbol.OK_GREEN, dash_url))
 
         if settings.grafana['filename']:
             try:
                 dashboard.save()
             except Exception as e:
-                print "{0} Could not write Grafana dashboard: {1}".format(Symbol.NOK_RED, e.message)
+                print("{0} Could not write Grafana dashboard: {1}".format(Symbol.NOK_RED, e.message))
             else:
-                print "{0} A Grafana dashboard has been successfully generated to {1}".format(Symbol.OK_GREEN, settings.grafana['filename'])
+                print("{0} A Grafana dashboard has been successfully generated to {1}".format(Symbol.OK_GREEN, settings.grafana['filename']))
     else:
-        print "Then we're good! Have a nice day!"
+        print("Then we're good! Have a nice day!")
 
 
 if __name__ == "__main__":
@@ -172,8 +173,8 @@ if __name__ == "__main__":
     try:
         main(args)
     except KeyboardInterrupt:
-        print "\n{0} Canceled.".format(Symbol.NOK_RED)
+        print("\n{0} Canceled.".format(Symbol.NOK_RED))
         sys.exit(1)
     except Exception as e:
-        print "{0} Error: {1}".format(Symbol.NOK_RED, e.message)
+        print("{0} Error: {1}".format(Symbol.NOK_RED, e.message))
         sys.exit(1)

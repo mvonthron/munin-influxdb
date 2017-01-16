@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import errno
 import subprocess
@@ -27,7 +28,7 @@ def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
     step = int(root.find('step').text)
 
     if len(root.findall('ds')) > 1:
-        print "  {0} Found more than one datasource in {1} which is not expected. Please report problem.".format(Symbol.NOK_RED, filename)
+        print("  {0} Found more than one datasource in {1} which is not expected. Please report problem.".format(Symbol.NOK_RED, filename))
 
     for rra in root.findall('rra'):
         if keep_average_only and rra.find('cf').text.strip() != "AVERAGE":
@@ -40,10 +41,10 @@ def read_xml_file(filename, keep_average_only=True, keep_null_values=True):
         nb_entries = len(rra.find("database"))
         entry_date = first_entry = last_entry - (nb_entries-1)*entry_delta
 
-        # print "  + New segment from {0} to {1}. Nb entries: {2}. Granularity: {3} sec.".format(datetime.fromtimestamp(first_entry),
+        # print("  + New segment from {0} to {1}. Nb entries: {2}. Granularity: {3} sec.".format(datetime.fromtimestamp(first_entry),
         #                                                                                        datetime.fromtimestamp(last_entry),
         #                                                                                        nb_entries,
-        #                                                                                        entry_delta)
+        #                                                                                        entry_delta))
 
         # there should be only onv <v> entry per row, at least didn't see other cases with Munin
         for v in rra.findall("./database/row/v"):
@@ -100,7 +101,7 @@ def export_to_xml_in_folder(source, destination=Defaults.MUNIN_XML_FOLDER):
     nb_files = len(filelist)
     progress_bar = ProgressBar(nb_files)
 
-    print "Exporting {0} RRD databases:".format(nb_files)
+    print("Exporting {0} RRD databases:".format(nb_files))
 
     for domain, file in filelist:
         src = os.path.join(source, domain, file)
@@ -127,7 +128,7 @@ def discover_from_rrd(settings, insert_missing=True, print_missing=False):
     """
 
     folder = settings.paths['munin']
-    print "Reading Munin RRD cache: ({0})".format(folder)
+    print("Reading Munin RRD cache: ({0})".format(folder))
 
     not_inserted = defaultdict(dict)
 
@@ -154,7 +155,7 @@ def discover_from_rrd(settings, insert_missing=True, print_missing=False):
             length = len(parts)
 
             if length < 4:
-                print "Error:", filename, parts, length
+                print("Error:", filename, parts, length)
                 continue
 
             host, plugin, field, datatype = parts[0], ".".join(parts[1:-2]), parts[-2], parts[-1]
@@ -169,7 +170,7 @@ def discover_from_rrd(settings, insert_missing=True, print_missing=False):
             try:
                 assert os.path.exists(os.path.join(folder, domain, "{0}-{1}-{2}-{3}.rrd".format(host, plugin.replace(".", "-"), field, datatype[0])))
             except AssertionError:
-                print "{0} != {1}-{2}-{3}-{4}.rrd".format(filename, host, plugin, field, datatype[0])
+                print("{0} != {1}-{2}-{3}-{4}.rrd".format(filename, host, plugin, field, datatype[0]))
                 plugin_data.fields[field].rrd_found = False
             else:
                 plugin_data.fields[field].rrd_found = True
@@ -181,11 +182,11 @@ def discover_from_rrd(settings, insert_missing=True, print_missing=False):
                 settings.nb_fields += 1
 
     if print_missing and len(not_inserted):
-        print "The following plugin databases were ignored"
+        print("The following plugin databases were ignored")
         for domain, hosts in not_inserted.items():
-            print "  - Domain {0}:".format(domain)
+            print("  - Domain {0}:".format(domain))
             for host, plugins in hosts.items():
-                print "    {0} Host {1}: {2}".format(Symbol.NOK_RED, host, ", ".join(plugins))
+                print("    {0} Host {1}: {2}".format(Symbol.NOK_RED, host, ", ".join(plugins)))
 
     return settings
 
@@ -194,7 +195,7 @@ def check_rrd_files(settings, folder=Defaults.MUNIN_RRD_FOLDER):
     missing = []
     for domain, host, plugin, field in settings.iter_fields():
         _field = settings.domains[domain].hosts[host].plugins[plugin].fields[field]
-        # print "{0}[{1}]: {2}".format(plugin, field, _field.rrd_filename)
+        # print("{0}[{1}]: {2}".format(plugin, field, _field.rrd_filename))
         exists = os.path.exists(_field.rrd_filename)
 
         if not exists:

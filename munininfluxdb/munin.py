@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import pprint
@@ -34,7 +35,7 @@ def discover_from_datafile(settings):
             plugin_name = plugin_parts[0]
 
             # if plugin.startswith("diskstats"):
-            #     print head, plugin_parts, len(plugin_parts), value
+            #     print(head, plugin_parts, len(plugin_parts), value)
 
             if len(plugin.strip()) == 0:
                 # plugin properties
@@ -77,13 +78,13 @@ def discover_from_www(settings):
         try:
             from BeautifulSoup import BeautifulSoup
         except ImportError:
-            print "Please install BeautifulSoup to use this program"
-            print "  pip install beautifulsoup4 or easy_install beautifulsoup4"
+            print("Please install BeautifulSoup to use this program")
+            print("  pip install beautifulsoup4 or easy_install beautifulsoup4")
             sys.exit(1)
 
     folder = settings.paths['www']
 
-    print "Reading Munin www cache: ({0})".format(folder)
+    print("Reading Munin www cache: ({0})".format(folder))
     with open(os.path.join(folder, "index.html")) as f:
         root = BeautifulSoup(f.read())
 
@@ -113,7 +114,7 @@ def discover_from_www(settings):
                 # we won't bother reading the html file for now and guess it from the RRD database later
                 host, plugin = elements[0], ".".join(elements[1:3])
             else:
-                print "Unknown structure"
+                print("Unknown structure")
                 continue
 
             plugin = plugin.replace(".html", "")
@@ -131,7 +132,7 @@ def read_state_file(filename):
     try:
         data = storable.retrieve(filename)
     except Exception as e:
-        print "{0} Error: could read state file {1}: {2}".format(Symbol.NOK_RED, filename, e.message)
+        print("{0} Error: could read state file {1}: {2}".format(Symbol.NOK_RED, filename, e.message))
 
 
 if __name__ == "__main__":

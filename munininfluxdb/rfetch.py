@@ -1,9 +1,10 @@
+from __future__ import print_function
 from pprint import pprint
 
 try:
     import paramiko
 except ImportError:
-    print "SSH library Paramiko missing, needed for remote plugins"
+    print("SSH library Paramiko missing, needed for remote plugins")
 
 class MuninRunner:
     def __init__(self):
