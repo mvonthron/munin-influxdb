@@ -37,9 +37,9 @@ class InfluxdbClient:
         except influxdb.client.InfluxDBClientError as e:
             self.client, self.valid = None, False
             if not silent:
-                print("  {0} Could not connect to database: {1}".format(Symbol.WARN_YELLOW, e.message))
+                print("  {0} Could not connect to database: {1}".format(Symbol.WARN_YELLOW, e))
         except Exception as e:
-            print("Error: %s" % e.message)
+            print("Error: %s" % e)
             self.client, self.valid = None, False
         else:
             self.client, self.valid = client, True
@@ -64,20 +64,20 @@ class InfluxdbClient:
             try:
                 self.client.create_database(name)
             except influxdb.client.InfluxDBClientError as e:
-                print("Error: could not create database: %s" % e.message)
+                print("Error: could not create database: %s" % e)
                 return False
 
         try:
             self.client.switch_database(name)
         except influxdb.client.InfluxDBClientError as e:
-            print("Error: could not select database: %s" % e.message)
+            print("Error: could not select database: %s" % e)
             return False
 
         # dummy query to test db
         try:
             res = self.client.query('show series')
         except influxdb.client.InfluxDBClientError as e:
-            print("Error: could not query database: %s" % e.message)
+            print("Error: could not query database: %s" % e)
             return False
 
         return True
@@ -163,7 +163,7 @@ class InfluxdbClient:
             try:
                 self.client.write_points(body, time_precision='s')
             except influxdb.client.InfluxDBClientError as e:
-                raise Exception("Cannot insert in {0} series: {1}".format(measurement, e.message))
+                raise Exception("Cannot insert in {0} series: {1}".format(measurement, e))
         else:
             raise ValueError("Measurement {0} did not contain any non-null value".format(measurement))
 
@@ -186,7 +186,7 @@ class InfluxdbClient:
                     res = self.client.query("SELECT COUNT(\"{0}\") FROM \"{1}\"".format(field, name))
                     assert len(res) >= 0
                 except influxdb.client.InfluxDBClientError as e:
-                    raise Exception(e.message)
+                    raise Exception(str(e))
                 except Exception as e:
                     raise Exception("Field \"{}\" in measurement {} doesn't exist. (May happen if original data contains only NaN entries)".format(field, name))
 
@@ -201,8 +201,7 @@ class InfluxdbClient:
             try:
                 self.write_series(measurement, tags, fields, packed_values)
             except Exception as e:
-                # print(e)
-                errors.append((Symbol.NOK_RED, "Error writing {0} to InfluxDB: {1}".format(measurement, e.message)))
+                errors.append((Symbol.NOK_RED, "Error writing {0} to InfluxDB: {1}".format(measurement, e)))
                 return
             finally:
                 progress_bar.update(len(fields)-1)  # 'time' column ignored
@@ -210,7 +209,7 @@ class InfluxdbClient:
             try:
                 self.validate_record(measurement, fields)
             except Exception as e:
-                errors.append((Symbol.WARN_YELLOW, "Validation error in {0}: {1}".format(measurement, e.message)))
+                errors.append((Symbol.WARN_YELLOW, "Validation error in {0}: {1}".format(measurement, e)))
             finally:
                 progress_bar.update(len(fields)-1)  # 'time' column ignored
 
@@ -259,7 +258,7 @@ class InfluxdbClient:
                         try:
                             content = read_xml_file(_field.xml_filename)
                         except Exception as e:
-                            errors.append((Symbol.WARN_YELLOW, "Could not read file for {0}: {1}".format(field, e.message)))
+                            errors.append((Symbol.WARN_YELLOW, "Could not read file for {0}: {1}".format(field, e)))
                         else:
                             [values[key].append(value) for key, value in content.items()]
 
@@ -364,13 +363,13 @@ class InfluxdbClient:
                 pass
                 # self.upload_values(series_name, keys_name, data)
             except Exception as e:
-                errors.append(e.message)
+                errors.append(str(e))
                 continue
 
             try:
                 self.validate_record(series_name, keys_name)
             except Exception as e:
-                errors.append("Validation error in {0}: {1}".format(series_name, e.message))
+                errors.append("Validation error in {0}: {1}".format(series_name, e))
 
         if errors:
             print("The following errors were detected while importing:")

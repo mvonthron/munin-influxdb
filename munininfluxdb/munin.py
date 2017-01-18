@@ -132,7 +132,7 @@ def read_state_file(filename):
     try:
         data = storable.retrieve(filename)
     except Exception as e:
-        print("{0} Error: could read state file {1}: {2}".format(Symbol.NOK_RED, filename, e.message))
+        print("{0} Error: could read state file {1}: {2}".format(Symbol.NOK_RED, filename, e))
 
 
 if __name__ == "__main__":

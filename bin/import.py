@@ -33,7 +33,7 @@ def retrieve_munin_configuration(settings):
     try:
         rrd.check_rrd_files(settings)
     except Exception as e:
-        print("  {0} {1}".format(Symbol.NOK_RED, e.message))
+        print("  {0} {1}".format(Symbol.NOK_RED, e))
     else:
         print("  {0} Found {1} RRD files".format(Symbol.OK_GREEN, settings.nb_rrd_files))
 
@@ -93,7 +93,7 @@ def main(args):
             try:
                 dash_url = dashboard.upload()
             except Exception as e:
-                print("{0} Didn't quite work uploading: {1}".format(Symbol.NOK_RED, e.message))
+                print("{0} Didn't quite work uploading: {1}".format(Symbol.NOK_RED, e))
             else:
                 print("{0} A Grafana dashboard has been successfully uploaded to {1}".format(Symbol.OK_GREEN, dash_url))
 
@@ -101,7 +101,7 @@ def main(args):
             try:
                 dashboard.save()
             except Exception as e:
-                print("{0} Could not write Grafana dashboard: {1}".format(Symbol.NOK_RED, e.message))
+                print("{0} Could not write Grafana dashboard: {1}".format(Symbol.NOK_RED, e))
             else:
                 print("{0} A Grafana dashboard has been successfully generated to {1}".format(Symbol.OK_GREEN, settings.grafana['filename']))
     else:
@@ -176,5 +176,5 @@ if __name__ == "__main__":
         print("\n{0} Canceled.".format(Symbol.NOK_RED))
         sys.exit(1)
     except Exception as e:
-        print("{0} Error: {1}".format(Symbol.NOK_RED, e.message))
+        print("{0} Error: {1}".format(Symbol.NOK_RED, e))
         sys.exit(1)

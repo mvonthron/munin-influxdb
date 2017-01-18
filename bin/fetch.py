@@ -81,7 +81,7 @@ def main(config_filename=Defaults.FETCH_CONFIG):
     try:
         client.get_list_database()
     except influxdb.client.InfluxDBClientError as e:
-        print("  {0} Could not connect to database: {1}".format(Symbol.WARN_YELLOW, e.message))
+        print("  {0} Could not connect to database: {1}".format(Symbol.WARN_YELLOW, e))
         sys.exit(1)
     else:
         client.switch_database(config['influxdb']['database'])
@@ -91,7 +91,7 @@ def main(config_filename=Defaults.FETCH_CONFIG):
             values = read_state_file(statefile)
 
         except Exception as e:
-            print("{0} Could not read state file {1}: {2}".format(Symbol.NOK_RED, statefile, e.message))
+            print("{0} Could not read state file {1}: {2}".format(Symbol.NOK_RED, statefile, e))
             continue
         else:
             print("{0} Parsed: {1}".format(Symbol.OK_GREEN, statefile))
@@ -102,7 +102,7 @@ def main(config_filename=Defaults.FETCH_CONFIG):
             try:
                 client.write_points(data, time_precision='s')
             except influxdb.client.InfluxDBClientError as e:
-                print("  {0} Could not write data to database: {1}".format(Symbol.WARN_YELLOW, e.message))
+                print("  {0} Could not write data to database: {1}".format(Symbol.WARN_YELLOW, e))
             else:
                 config['lastupdate'] = max(config['lastupdate'], int(values[1]))
                 print("{0} Successfully written {1} new measurements".format(Symbol.OK_GREEN, len(data)))
