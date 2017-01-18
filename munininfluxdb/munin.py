@@ -29,10 +29,23 @@ def discover_from_datafile(settings):
             domain, tail = line.split(";", 1)
             host, tail = tail.split(":", 1)
             head, value = tail.split(" ", 1)
-            plugin_parts = head.split(".")
-            plugin, field, property = ".".join(plugin_parts[0:-2]), plugin_parts[-2], plugin_parts[-1]
+            plugin_parts = head.rsplit(".", 2)
+            if len(plugin_parts) == 3:
+                plugin, field, property = plugin_parts
+            elif len(plugin_parts) == 2:
+                # Configuration value for the plugin itself, not the field
+                plugin = plugin_parts[0]
+                field = ''
+                property = plugin_parts[1]
+            elif len(plugin_parts) == 1:
+                # Global configuration value for that node
+                plugin = ''
+                field = ''
+                property = plugin_parts[0]
+            else:
+                raise Exception('Unexpected number of parts found in this config value')
             # plugin name kept to allow running the plugin in fetch command
-            plugin_name = plugin_parts[0]
+            plugin_name = plugin
 
             # if plugin.startswith("diskstats"):
             #     print(head, plugin_parts, len(plugin_parts), value)
