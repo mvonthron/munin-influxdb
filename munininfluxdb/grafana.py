@@ -125,7 +125,10 @@ class Panel:
             # LINE* should be matched *but not* LINESTACK*
             if hasStack and draw.startswith("LINE") and not draw.startswith("LINESTACK"):
                 current["stack"] = False
-                current["linewidth"] = int(draw[-1])/2 # lines appear bigger on Grafana
+                if draw == 'LINE':
+                    current["linewidth"] = 1
+                else:
+                    current["linewidth"] = int(draw[-1])/2 # lines appear bigger on Grafana
 
             if len(current) > 1:
                 self.overrides.append(current)
