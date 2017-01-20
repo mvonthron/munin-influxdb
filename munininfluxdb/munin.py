@@ -18,7 +18,9 @@ def discover_from_datafile(settings):
     """
 
     with open(settings.paths['datafile']) as f:
-        for line in f.readlines():
+        for line_number, line in enumerate(f.readlines()):
+            line_number = line_number + 1  # We count lines starting at 1. Not 0
+
             # header line
             if line.startswith("version"):
                 continue
@@ -32,18 +34,10 @@ def discover_from_datafile(settings):
             plugin_parts = head.rsplit(".", 2)
             if len(plugin_parts) == 3:
                 plugin, field, property = plugin_parts
-            elif len(plugin_parts) == 2:
-                # Configuration value for the plugin itself, not the field
-                plugin = plugin_parts[0]
-                field = ''
-                property = plugin_parts[1]
-            elif len(plugin_parts) == 1:
-                # Global configuration value for that node
-                plugin = ''
-                field = ''
-                property = plugin_parts[0]
             else:
-                raise Exception('Unexpected number of parts found in this config value')
+                # TODO LOG.debug('Line #%d is an invalid plugin line. Skipping' %
+                # TODO           line_number)
+                continue
             # plugin name kept to allow running the plugin in fetch command
             plugin_name = plugin
 
