@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import pwd
 import json
 import os
@@ -50,7 +51,7 @@ def pack_values(config, values):
         else:
             age = (date - int(latest_date)) // (24*3600)
             if age < 7:
-                print "{0} Not found measurement {1} (updated {2} days ago)".format(Symbol.WARN_YELLOW, name, age)
+                print("{0} Not found measurement {1} (updated {2} days ago)".format(Symbol.WARN_YELLOW, name, age))
             # otherwise very probably a removed plugin, no problem
 
     return [{
@@ -69,7 +70,7 @@ def main(config_filename=Defaults.FETCH_CONFIG):
     config = None
     with open(config_filename) as f:
         config = json.load(f)
-        print "{0} Opened configuration: {1}".format(Symbol.OK_GREEN, f.name)
+        print("{0} Opened configuration: {1}".format(Symbol.OK_GREEN, f.name))
     assert config
 
     client = influxdb.InfluxDBClient(config['influxdb']['host'],
@@ -80,7 +81,7 @@ def main(config_filename=Defaults.FETCH_CONFIG):
     try:
         client.get_list_database()
     except influxdb.client.InfluxDBClientError as e:
-        print "  {0} Could not connect to database: {1}".format(Symbol.WARN_YELLOW, e.message)
+        print("  {0} Could not connect to database: {1}".format(Symbol.WARN_YELLOW, e))
         sys.exit(1)
     else:
         client.switch_database(config['influxdb']['database'])
@@ -90,31 +91,31 @@ def main(config_filename=Defaults.FETCH_CONFIG):
             values = read_state_file(statefile)
 
         except Exception as e:
-            print "{0} Could not read state file {1}: {2}".format(Symbol.NOK_RED, statefile, e.message)
+            print("{0} Could not read state file {1}: {2}".format(Symbol.NOK_RED, statefile, e))
             continue
         else:
-            print "{0} Parsed: {1}".format(Symbol.OK_GREEN, statefile)
+            print("{0} Parsed: {1}".format(Symbol.OK_GREEN, statefile))
 
         data = pack_values(config, values)
         if len(data):
-            # print data
+            # print(data)
             try:
                 client.write_points(data, time_precision='s')
             except influxdb.client.InfluxDBClientError as e:
-                print "  {0} Could not write data to database: {1}".format(Symbol.WARN_YELLOW, e.message)
+                print("  {0} Could not write data to database: {1}".format(Symbol.WARN_YELLOW, e))
             else:
                 config['lastupdate'] = max(config['lastupdate'], int(values[1]))
-                print "{0} Successfully written {1} new measurements".format(Symbol.OK_GREEN, len(data))
+                print("{0} Successfully written {1} new measurements".format(Symbol.OK_GREEN, len(data)))
         else:
-            print Symbol.NOK_RED, "No data found, is Munin still running?"
+            print("%s No data found, is Munin still running?", Symbol.NOK_RED)
 
     with open(config_filename, "w") as f:
         json.dump(config, f)
-        print "{0} Updated configuration: {1}".format(Symbol.OK_GREEN, f.name)
+        print("{0} Updated configuration: {1}".format(Symbol.OK_GREEN, f.name))
 
 def uninstall_cron():
     if os.geteuid() != 0:
-        print "It seems you are not root, please run \"muninflux fetch --uninstall-cron\" again with root privileges".format(sys.argv[0])
+        print("It seems you are not root, please run \"muninflux fetch --uninstall-cron\" again with root privileges".format(sys.argv[0]))
         sys.exit(1)
 
     try:
@@ -131,7 +132,7 @@ def uninstall_cron():
 
 def install_cron(script_file, period):
     if os.geteuid() != 0:
-        print "It seems you are not root, please run \"muninflux fetch --install-cron\" again with root privileges".format(sys.argv[0])
+        print("It seems you are not root, please run \"muninflux fetch --install-cron\" again with root privileges".format(sys.argv[0]))
         sys.exit(1)
 
     try:
@@ -167,13 +168,13 @@ if __name__ == "__main__":
 
     if args.script_path:
         install_cron(args.script_path, args.period)
-        print "{0} Cron job installed for user {1}".format(Symbol.OK_GREEN, CRON_USER)
+        print("{0} Cron job installed for user {1}".format(Symbol.OK_GREEN, CRON_USER))
     elif args.uninstall_cron:
         nb = uninstall_cron()
         if nb:
-            print "{0} Cron job uninstalled for user {1} ({2} entries deleted)".format(Symbol.OK_GREEN, CRON_USER, nb)
+            print("{0} Cron job uninstalled for user {1} ({2} entries deleted)".format(Symbol.OK_GREEN, CRON_USER, nb))
         else:
-            print "No matching job found (searching comment \"{1}\" in crontab for user {2})".format(Symbol.WARN_YELLOW,
-                                                                                                     CRON_COMMENT, CRON_USER)
+            print("No matching job found (searching comment \"{1}\" in crontab for user {2})".format(Symbol.WARN_YELLOW,
+                                                                                                     CRON_COMMENT, CRON_USER))
     else:
         main(args.config)

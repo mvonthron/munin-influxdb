@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import json
 import urlparse
 
@@ -123,7 +125,10 @@ class Panel:
             # LINE* should be matched *but not* LINESTACK*
             if hasStack and draw.startswith("LINE") and not draw.startswith("LINESTACK"):
                 current["stack"] = False
-                current["linewidth"] = int(draw[-1])/2 # lines appear bigger on Grafana
+                if draw == 'LINE':
+                    current["linewidth"] = 1
+                else:
+                    current["linewidth"] = int(draw[-1])/2 # lines appear bigger on Grafana
 
             if len(current) > 1:
                 self.overrides.append(current)
@@ -219,13 +224,13 @@ class Dashboard:
 
     def prompt_setup(self):
         setup = self.settings.grafana
-        print "\nGrafana: Please enter your connection information"
+        print("\nGrafana: Please enter your connection information")
         setup['host'] = raw_input("  - host [http://localhost:3000]: ").strip() or "http://localhost:3000"
         setup['auth'] = None
         setup['filename'] = None
 
         while not GrafanaApi.test_host(setup['host']) and not setup['filename']:
-            print "\n{0}We couldn't connect to {1}, please try again or leave empty to save to a local file{2}".format(Symbol.WARN_YELLOW, setup['host'], Color.CLEAR)
+            print("\n{0}We couldn't connect to {1}, please try again or leave empty to save to a local file{2}".format(Symbol.WARN_YELLOW, setup['host'], Color.CLEAR))
             setup['host'] = raw_input("  - host: ").strip() or ""
             if not setup['host']:
                 setup['filename'] = raw_input("  - local file [/tmp/munin-grafana.json]: ").strip() or "/tmp/munin-grafana.json"
@@ -372,7 +377,7 @@ class GrafanaApi:
         if r.ok:
             return "".join([self.host, "/dashboard/db/", r.json()['slug']])
         else:
-            print r.json()
+            print(r.json())
             r.raise_for_status()
 
 
@@ -392,7 +397,7 @@ if __name__ == "__main__":
 
     # pprint(dashboard.to_json())
 
-    print json.dumps(dashboard.to_json(),indent=2, separators=(',', ': '))
+    print(json.dumps(dashboard.to_json(),indent=2, separators=(',', ': ')))
 
     # ---
 
@@ -410,4 +415,4 @@ if __name__ == "__main__":
     #
     # dashboard = Dashboard("Munin dashboard")
     # dashboard.generate(conf)
-    # print json.dumps(dashboard.to_json(),indent=2, separators=(',', ': '))
+    # print(json.dumps(dashboard.to_json(),indent=2, separators=(',', ': ')))

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import getpass
 import json
@@ -36,9 +37,9 @@ class InfluxdbClient:
         except influxdb.client.InfluxDBClientError as e:
             self.client, self.valid = None, False
             if not silent:
-                print "  {0} Could not connect to database: {1}".format(Symbol.WARN_YELLOW, e.message)
+                print("  {0} Could not connect to database: {1}".format(Symbol.WARN_YELLOW, e))
         except Exception as e:
-            print "Error: ", e.message
+            print("Error: %s" % e)
             self.client, self.valid = None, False
         else:
             self.client, self.valid = client, True
@@ -63,20 +64,20 @@ class InfluxdbClient:
             try:
                 self.client.create_database(name)
             except influxdb.client.InfluxDBClientError as e:
-                print "Error: could not create database: ", e.message
+                print("Error: could not create database: %s" % e)
                 return False
 
         try:
             self.client.switch_database(name)
         except influxdb.client.InfluxDBClientError as e:
-            print "Error: could not select database: ", e.message
+            print("Error: could not select database: %s" % e)
             return False
 
         # dummy query to test db
         try:
             res = self.client.query('show series')
         except influxdb.client.InfluxDBClientError as e:
-            print "Error: could not query database: ", e.message
+            print("Error: could not query database: %s" % e)
             return False
 
         return True
@@ -84,9 +85,9 @@ class InfluxdbClient:
     def list_db(self):
         assert self.client
         db_list = self.client.get_list_database()
-        print "List of existing databases:"
+        print("List of existing databases:")
         for db in db_list:
-            print "  - {0}".format(db['name'])
+            print("  - {0}".format(db['name']))
 
     def list_series(self):
         return self.client.get_list_series()
@@ -112,7 +113,7 @@ class InfluxdbClient:
 
     def prompt_setup(self):
         setup = self.settings.influxdb
-        print "\n{0}InfluxDB: Please enter your connection information{1}".format(Color.BOLD, Color.CLEAR)
+        print("\n{0}InfluxDB: Please enter your connection information{1}".format(Color.BOLD, Color.CLEAR))
         while not self.client:
             hostname = raw_input("  - host/handle [{0}]: ".format(setup['host'])) or setup['host']
 
@@ -162,7 +163,7 @@ class InfluxdbClient:
             try:
                 self.client.write_points(body, time_precision='s')
             except influxdb.client.InfluxDBClientError as e:
-                raise Exception("Cannot insert in {0} series: {1}".format(measurement, e.message))
+                raise Exception("Cannot insert in {0} series: {1}".format(measurement, e))
         else:
             raise ValueError("Measurement {0} did not contain any non-null value".format(measurement))
 
@@ -185,14 +186,14 @@ class InfluxdbClient:
                     res = self.client.query("SELECT COUNT(\"{0}\") FROM \"{1}\"".format(field, name))
                     assert len(res) >= 0
                 except influxdb.client.InfluxDBClientError as e:
-                    raise Exception(e.message)
+                    raise Exception(str(e))
                 except Exception as e:
                     raise Exception("Field \"{}\" in measurement {} doesn't exist. (May happen if original data contains only NaN entries)".format(field, name))
 
         return True
 
     def import_from_xml(self):
-        print "\nUploading data to InfluxDB:"
+        print("\nUploading data to InfluxDB:")
         progress_bar = ProgressBar(self.settings.nb_rrd_files*3)  # nb_files * (read + upload + validate)
         errors = []
 
@@ -200,8 +201,7 @@ class InfluxdbClient:
             try:
                 self.write_series(measurement, tags, fields, packed_values)
             except Exception as e:
-                # print e
-                errors.append((Symbol.NOK_RED, "Error writing {0} to InfluxDB: {1}".format(measurement, e.message)))
+                errors.append((Symbol.NOK_RED, "Error writing {0} to InfluxDB: {1}".format(measurement, e)))
                 return
             finally:
                 progress_bar.update(len(fields)-1)  # 'time' column ignored
@@ -209,7 +209,7 @@ class InfluxdbClient:
             try:
                 self.validate_record(measurement, fields)
             except Exception as e:
-                errors.append((Symbol.WARN_YELLOW, "Validation error in {0}: {1}".format(measurement, e.message)))
+                errors.append((Symbol.WARN_YELLOW, "Validation error in {0}: {1}".format(measurement, e)))
             finally:
                 progress_bar.update(len(fields)-1)  # 'time' column ignored
 
@@ -218,7 +218,7 @@ class InfluxdbClient:
         except:
             raise Exception("Not connected to a InfluxDB server")
         else:
-            print "  {0} Connection to database \"{1}\" OK".format(Symbol.OK_GREEN, self.settings.influxdb['database'])
+            print("  {0} Connection to database \"{1}\" OK".format(Symbol.OK_GREEN, self.settings.influxdb['database']))
 
         if self.settings.influxdb['group_fields']:
             """
@@ -244,7 +244,7 @@ class InfluxdbClient:
                 }
                 if _plugin.is_multigraph:
                     tags["is_multigraph"] = True
-                    print host, plugin
+                    print(host, plugin)
 
                 field_names = ['time']
                 values = defaultdict(list)
@@ -258,7 +258,7 @@ class InfluxdbClient:
                         try:
                             content = read_xml_file(_field.xml_filename)
                         except Exception as e:
-                            errors.append((Symbol.WARN_YELLOW, "Could not read file for {0}: {1}".format(field, e.message)))
+                            errors.append((Symbol.WARN_YELLOW, "Could not read file for {0}: {1}".format(field, e)))
                         else:
                             [values[key].append(value) for key, value in content.items()]
 
@@ -317,7 +317,7 @@ class InfluxdbClient:
                 _upload_and_validate(measurement, tags, field_names, values_with_time)
 
         for error in errors:
-            print "  {} {}".format(error[0], error[1])
+            print("  {} {}".format(error[0], error[1]))
 
     def import_from_xml_folder(self, folder):
         raise DeprecationWarning
@@ -341,9 +341,9 @@ class InfluxdbClient:
             show = raw_input("Would you like to see the prospective series and columns? y/[n]: ") or "n"
             if show in ("y", "Y"):
                 for series_name in sorted(grouped_files):
-                    print "  - {2}{0}{3}: {1}".format(series_name, [name for name, _ in grouped_files[series_name]], Color.GREEN, Color.CLEAR)
+                    print("  - {2}{0}{3}: {1}".format(series_name, [name for name, _ in grouped_files[series_name]], Color.GREEN, Color.CLEAR))
 
-        print "Importing {0} XML files".format(len(file_list))
+        print("Importing {0} XML files".format(len(file_list)))
         for series_name in grouped_files:
             data = []
             keys_name = ['time']
@@ -363,18 +363,18 @@ class InfluxdbClient:
                 pass
                 # self.upload_values(series_name, keys_name, data)
             except Exception as e:
-                errors.append(e.message)
+                errors.append(str(e))
                 continue
 
             try:
                 self.validate_record(series_name, keys_name)
             except Exception as e:
-                errors.append("Validation error in {0}: {1}".format(series_name, e.message))
+                errors.append("Validation error in {0}: {1}".format(series_name, e))
 
         if errors:
-            print "The following errors were detected while importing:"
+            print("The following errors were detected while importing:")
             for error in errors:
-                print "  {0} {1}".format(Symbol.NOK_RED, error)
+                print("  {0} {1}".format(Symbol.NOK_RED, error))
 
     def get_settings(self):
         # the getter is useless in theory but making it explicit enforces the idea that we made modifications

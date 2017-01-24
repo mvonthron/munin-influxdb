@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import pprint
@@ -17,7 +18,9 @@ def discover_from_datafile(settings):
     """
 
     with open(settings.paths['datafile']) as f:
-        for line in f.readlines():
+        for line_number, line in enumerate(f.readlines()):
+            line_number = line_number + 1  # We count lines starting at 1. Not 0
+
             # header line
             if line.startswith("version"):
                 continue
@@ -28,13 +31,18 @@ def discover_from_datafile(settings):
             domain, tail = line.split(";", 1)
             host, tail = tail.split(":", 1)
             head, value = tail.split(" ", 1)
-            plugin_parts = head.split(".")
-            plugin, field, property = ".".join(plugin_parts[0:-2]), plugin_parts[-2], plugin_parts[-1]
+            plugin_parts = head.rsplit(".", 2)
+            if len(plugin_parts) == 3:
+                plugin, field, property = plugin_parts
+            else:
+                # TODO LOG.debug('Line #%d is an invalid plugin line. Skipping' %
+                # TODO           line_number)
+                continue
             # plugin name kept to allow running the plugin in fetch command
-            plugin_name = plugin_parts[0]
+            plugin_name = plugin
 
             # if plugin.startswith("diskstats"):
-            #     print head, plugin_parts, len(plugin_parts), value
+            #     print(head, plugin_parts, len(plugin_parts), value)
 
             if len(plugin.strip()) == 0:
                 # plugin properties
@@ -77,13 +85,13 @@ def discover_from_www(settings):
         try:
             from BeautifulSoup import BeautifulSoup
         except ImportError:
-            print "Please install BeautifulSoup to use this program"
-            print "  pip install beautifulsoup4 or easy_install beautifulsoup4"
+            print("Please install BeautifulSoup to use this program")
+            print("  pip install beautifulsoup4 or easy_install beautifulsoup4")
             sys.exit(1)
 
     folder = settings.paths['www']
 
-    print "Reading Munin www cache: ({0})".format(folder)
+    print("Reading Munin www cache: ({0})".format(folder))
     with open(os.path.join(folder, "index.html")) as f:
         root = BeautifulSoup(f.read())
 
@@ -113,7 +121,7 @@ def discover_from_www(settings):
                 # we won't bother reading the html file for now and guess it from the RRD database later
                 host, plugin = elements[0], ".".join(elements[1:3])
             else:
-                print "Unknown structure"
+                print("Unknown structure")
                 continue
 
             plugin = plugin.replace(".html", "")
@@ -131,7 +139,7 @@ def read_state_file(filename):
     try:
         data = storable.retrieve(filename)
     except Exception as e:
-        print "{0} Error: could read state file {1}: {2}".format(Symbol.NOK_RED, filename, e.message)
+        print("{0} Error: could read state file {1}: {2}".format(Symbol.NOK_RED, filename, e))
 
 
 if __name__ == "__main__":
