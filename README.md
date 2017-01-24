@@ -66,7 +66,7 @@ Installation & Usage
 
 * About importing current data
 
-Munin stores data in a number of ways: the may storage is [RRD databases](http://oss.oetiker.ch/rrdtool/), but we also have
+Munin stores data in a number of ways: the main storage is [RRD databases](http://oss.oetiker.ch/rrdtool/), but we also have
 access to the cache of HTML webpages, config files and fresh data storage (see below). `munin-influxdb` reads the `htmlconf.storable`
 file to discover the plugins to extract and some of their settings (legend, thresholds...). The RRD databases (where the 
 data history is kept) are then extracted to XML (because reading RRD's native format is even worse than parsing XML), parsed, 
